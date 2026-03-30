@@ -57,18 +57,18 @@ thead tr{background:#5F94CE;color:#fff;}
 thead th{padding:9px 10px;text-align:left;font-weight:500;font-size:10px;text-transform:uppercase;letter-spacing:0.5px;white-space:nowrap;}
 thead th.r{text-align:right;}
 thead th.c{text-align:center;}
-tbody tr.line-hdr td{background:#eef3fb;font-size:11px;font-weight:600;color:#2e5f8a;padding:6px 10px;border-bottom:1px solid #deeaf7;}
+tbody tr.line-hdr td{background:#eef3fb;font-size:13px;font-weight:600;color:#2e5f8a;padding:8px 10px;border-bottom:1px solid #deeaf7;}
 tbody tr.sup-row{border-bottom:1px solid #E1E4EA;transition:background 0.1s;}
 tbody tr.sup-row:hover{background:#f9fbfe;}
 tbody tr.sup-row.sourced{background:#EAF3DE;}
 tbody tr.sup-row.no-quote{opacity:0.5;}
-td{padding:8px 10px;vertical-align:middle;}
-td.r{text-align:right;font-family:'JetBrains Mono',monospace;font-size:11px;}
+td{padding:8px 10px;vertical-align:middle;font-size:13px;color:#1A1D23;}
+td.r{text-align:right;font-family:'JetBrains Mono',monospace;font-size:13px;}
 td.c{text-align:center;}
-td.muted{color:#9BA3B0;font-size:11px;}
-.sup-tag{display:inline-block;background:#deeaf7;color:#2e5f8a;font-size:10px;padding:2px 7px;border-radius:4px;font-weight:500;}
+td.muted{color:#9BA3B0;font-size:13px;}
+.sup-tag{display:inline-block;background:#deeaf7;color:#2e5f8a;font-size:12px;padding:3px 8px;border-radius:4px;font-weight:500;}
 .sup-tag.nr{background:#F1EFE8;color:#9BA3B0;}
-.low-star{color:#3B6D11;font-size:10px;margin-left:3px;font-weight:600;}
+.low-star{color:#3B6D11;font-size:11px;margin-left:3px;font-weight:600;}
 
 .tog-wrap{display:flex;gap:3px;align-items:center;justify-content:center;}
 .tog{padding:3px 10px;border-radius:4px;font-size:11px;font-weight:500;cursor:pointer;border:1px solid #E1E4EA;background:transparent;font-family:'DM Sans',sans-serif;transition:all 0.1s;}
@@ -322,15 +322,16 @@ function renderTable(){
       if(isLow && prices.length > 1) priceHtml += '<span class="low-star">★ low</span>';
 
       html += '<tr class="sup-row '+(isSourced?'sourced':'')+' '+(!canSource?'no-quote':'')+'">';
-      html += '<td class="muted">'+ln+'</td>';
-      html += '<td style="padding-left:18px;font-size:11px;">'+desc+'</td>';
-      html += '<td class="c muted">'+(rec.CAD_Quantity||'—')+'</td>';
-      html += '<td class="r">'+fmtLb(rec.CAD_Unit_Weight)+'</td>';
-      html += '<td class="r">'+fmtLb(rec.CAD_Calc_Weight)+'</td>';
+      var rowDesc = rec.CAD_Item_Info || rec.CAD_Material_Description || rec.Description || desc || '—';
+      html += '<td style="font-size:13px;color:#9BA3B0;">'+ln+'</td>';
+      html += '<td style="padding-left:18px;font-size:13px;color:#1A1D23;font-weight:400;">'+rowDesc+'</td>';
+      html += '<td class="c" style="font-size:13px;color:#1A1D23;">'+(rec.CAD_Quantity||'—')+'</td>';
+      html += '<td class="r" style="font-size:13px;">'+fmtLb(rec.CAD_Unit_Weight)+'</td>';
+      html += '<td class="r" style="font-size:13px;">'+fmtLb(rec.CAD_Calc_Weight)+'</td>';
       html += '<td><span class="sup-tag '+(canSource?'':'nr')+'">'+(rec.CAD_Supplier_Name||'—')+'</span></td>';
-      html += '<td class="r">'+priceHtml+'</td>';
-      html += '<td class="r">'+fmt(rec.CAD_Unit_Price)+'</td>';
-      html += '<td class="r" style="font-weight:'+(isSourced?'600':'400')+';color:'+(isSourced?'#185FA5':'#1A1D23')+';">'+fmt(rec.CAD_Total_Price)+'</td>';
+      html += '<td class="r" style="font-size:13px;">'+priceHtml+'</td>';
+      html += '<td class="r" style="font-size:13px;">'+fmt(rec.CAD_Unit_Price)+'</td>';
+      html += '<td class="r" style="font-size:13px;font-weight:'+(isSourced?'600':'400')+';color:'+(isSourced?'#185FA5':'#1A1D23')+';">'+fmt(rec.CAD_Total_Price)+'</td>';
       html += '<td>'+statusHtml+'</td>';
       html += '<td class="c">'+togHtml+'</td>';
       html += '</tr>';
