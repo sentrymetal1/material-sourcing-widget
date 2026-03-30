@@ -8,140 +8,105 @@
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:'DM Sans',sans-serif !important;background:#f0f4f8;color:#1A1D23 !important;overflow-y:auto;}
-
 #status-bar{position:fixed;bottom:4px;right:6px;background:#1a1a1a;color:#00ff00;padding:2px 6px;border-radius:4px;font-family:monospace;font-size:10px;z-index:9999;opacity:0.6;pointer-events:none;}
-
 #wrap{padding:16px;max-width:100%;min-height:100vh;}
-
 .page-header{background:#5F94CE;color:#fff;padding:14px 18px;border-radius:8px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;}
 .page-header h2{font-size:14px;font-weight:600;}
 .page-header p{font-size:11px;opacity:0.85;margin-top:2px;}
 .badge{display:inline-block;font-size:11px;padding:3px 10px;border-radius:20px;font-weight:500;}
-.badge-blue{background:#deeaf7;color:#2e5f8a;}
-.badge-green{background:#EAF3DE;color:#3B6D11;}
-.badge-amber{background:#FAEEDA;color:#854F0B;}
-.badge-gray{background:#F1EFE8;color:#5F5E5A;}
-
+.badge-blue{background:#deeaf7;color:#2e5f8a !important;}
+.badge-green{background:#EAF3DE;color:#3B6D11 !important;}
+.badge-amber{background:#FAEEDA;color:#854F0B !important;}
+.badge-gray{background:#F1EFE8;color:#5F5E5A !important;}
 .stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;}
 .stat-card{background:#fff;border-radius:8px;padding:10px 12px;border:1px solid #E1E4EA;}
-.stat-lbl{font-size:10px;color:#9BA3B0;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px;}
+.stat-lbl{font-size:10px;color:#9BA3B0 !important;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px;}
 .stat-val{font-size:18px;font-weight:600;font-family:'JetBrains Mono',monospace;}
-.stat-val.green{color:#3B6D11;}
-.stat-val.amber{color:#854F0B;}
-.stat-val.blue{color:#185FA5;}
-
+.stat-val.green{color:#3B6D11 !important;}
+.stat-val.amber{color:#854F0B !important;}
+.stat-val.blue{color:#185FA5 !important;}
 .toolbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px;}
 .toolbar-left{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
 .btn{padding:7px 16px;border-radius:6px;font-size:12px;font-weight:500;cursor:pointer;border:1px solid;transition:all 0.15s;font-family:'DM Sans',sans-serif;}
-.btn-primary{background:#5F94CE;color:#fff;border-color:#5F94CE;}
+.btn-primary{background:#5F94CE;color:#fff !important;border-color:#5F94CE;}
 .btn-primary:hover{background:#4a7fb5;}
 .btn-primary:disabled{background:#b0c9e8;border-color:#b0c9e8;cursor:not-allowed;}
-.btn-success{background:#3B6D11;color:#fff;border-color:#3B6D11;}
+.btn-success{background:#3B6D11;color:#fff !important;border-color:#3B6D11;}
 .btn-success:hover{background:#27500A;}
 .btn-success:disabled{background:#97C459;border-color:#97C459;cursor:not-allowed;}
-.btn-outline{background:#fff;color:#1A1D23;border-color:#D0D7E3;}
+.btn-outline{background:#fff;color:#1A1D23 !important;border-color:#D0D7E3;}
 .btn-outline:hover{background:#f5f7fa;}
-.btn-danger{background:transparent;color:#A32D2D;border-color:#F09595;}
+.btn-danger{background:transparent;color:#A32D2D !important;border-color:#F09595;}
 .btn-danger:hover{background:#FCEBEB;}
-.sel-info{font-size:12px;color:#9BA3B0;}
-.sel-info span{font-weight:600;color:#5F94CE;}
+.sel-info{font-size:12px;color:#9BA3B0 !important;}
+.sel-info span{font-weight:600;color:#5F94CE !important;}
+
+/* Supplier filter */
+.filter-bar{background:#fff;border:1px solid #E1E4EA;border-radius:8px;padding:10px 14px;margin-bottom:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.filter-bar label{font-size:12px;font-weight:500;color:#5F94CE !important;white-space:nowrap;}
+#supplier-filter{padding:6px 10px;border:1px solid #D0D7E3;border-radius:6px;font-size:12px;font-family:'DM Sans',sans-serif;color:#1A1D23;background:#fff;cursor:pointer;min-width:220px;flex:1;}
+#supplier-filter:focus{outline:none;border-color:#5F94CE;}
+
+/* Multi-supplier warning */
+#multi-supplier-warn{display:none;background:#FFF8E1;border:1px solid #F5C842;border-radius:8px;padding:12px 16px;margin-bottom:10px;}
+.warn-title{font-size:13px;font-weight:600;color:#7A4F00 !important;margin-bottom:4px;}
+.warn-body{font-size:12px;color:#5A3A00 !important;line-height:1.5;}
+.warn-suppliers{font-weight:600;color:#7A4F00 !important;}
 
 .table-wrap{background:#fff;border-radius:8px;border:1px solid #E1E4EA;overflow:hidden;position:relative;}
-.saving-overlay{display:none;position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(255,255,255,0.85);z-index:10;align-items:center;justify-content:center;flex-direction:column;gap:8px;font-size:13px;color:#5F94CE;font-weight:500;}
+.saving-overlay{display:none;position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(255,255,255,0.85);z-index:10;align-items:center;justify-content:center;flex-direction:column;gap:8px;font-size:13px;color:#5F94CE !important;font-weight:500;}
 .saving-overlay.show{display:flex;}
 .spinner{width:24px;height:24px;border:3px solid #deeaf7;border-top-color:#5F94CE;border-radius:50%;animation:spin 0.8s linear infinite;}
 @keyframes spin{to{transform:rotate(360deg);}}
-
-table{width:100%;border-collapse:collapse;font-size:13px;}
-thead tr{background:#5F94CE;color:#fff;}
-thead th{padding:9px 10px;text-align:left;font-weight:500;font-size:10px;text-transform:uppercase;letter-spacing:0.5px;white-space:nowrap;}
+table{width:100%;border-collapse:collapse;}
+thead tr{background:#5F94CE;}
+thead th{padding:9px 10px;text-align:left;font-weight:500;font-size:10px;text-transform:uppercase;letter-spacing:0.5px;white-space:nowrap;color:#fff !important;}
 thead th.r{text-align:right;}
 thead th.c{text-align:center;}
-
-/* Line header rows */
-tbody tr.line-hdr td{
-  background:#eef3fb;
-  font-size:13px;
-  font-weight:600;
-  color:#1a3a6e !important;
-  padding:8px 10px;
-  border-bottom:1px solid #deeaf7;
-}
-.line-hdr-desc{
-  font-weight:500;
-  color:#2e5f8a !important;
-  font-size:12px;
-}
-
-/* Supplier rows */
+tbody tr.line-hdr td{background:#eef3fb;font-size:13px;font-weight:600;color:#1a3a6e !important;padding:8px 10px;border-bottom:1px solid #deeaf7;}
+.line-hdr-desc{font-weight:500;color:#2e5f8a !important;font-size:12px;}
 tbody tr.sup-row{border-bottom:1px solid #E1E4EA;transition:background 0.1s;}
 tbody tr.sup-row:hover{background:#f9fbfe;}
 tbody tr.sup-row.sourced{background:#EAF3DE;}
-tbody tr.sup-row.no-quote{opacity:0.65;}
-
-/* All table cells — force dark readable text */
-td{
-  padding:8px 10px;
-  vertical-align:middle;
-  font-size:13px !important;
-  color:#1A1D23 !important;
-  font-family:'DM Sans',sans-serif !important;
-}
-td.r{text-align:right;font-family:'JetBrains Mono',monospace !important;font-size:13px !important;}
+tbody tr.sup-row.no-quote{opacity:0.6;}
+td{padding:7px 10px;vertical-align:middle;font-size:13px;color:#1A1D23 !important;font-family:'DM Sans',sans-serif;}
+td.r{text-align:right;font-family:'JetBrains Mono',monospace;font-size:12px;}
 td.c{text-align:center;}
-td.line-num{color:#5F94CE !important;font-weight:600;font-size:13px !important;}
-td.muted{color:#9BA3B0 !important;font-size:13px !important;}
-
-.sup-tag{display:inline-block;background:#deeaf7;color:#2e5f8a !important;font-size:12px;padding:3px 8px;border-radius:4px;font-weight:500;}
+td.line-num{color:#5F94CE !important;font-weight:600;font-size:13px;}
+td.desc-cell{font-size:12px;color:#1A1D23 !important;padding-left:20px;}
+td.num-cell{font-family:'JetBrains Mono',monospace;font-size:12px;color:#1A1D23 !important;}
+td.num-cell.sourced-price{color:#185FA5 !important;font-weight:600;}
+td.lead-cell{font-size:11px;color:#5F94CE !important;text-align:center;white-space:nowrap;}
+td.lead-cell.slow{color:#854F0B !important;}
+.sup-tag{display:inline-block;background:#deeaf7;color:#2e5f8a !important;font-size:11px;padding:2px 7px;border-radius:4px;font-weight:500;}
 .sup-tag.nr{background:#F1EFE8;color:#6B6F7A !important;}
-.low-star{color:#3B6D11;font-size:11px;margin-left:3px;font-weight:700;}
-
-.desc-cell{
-  font-size:13px !important;
-  color:#1A1D23 !important;
-  font-weight:400;
-  padding-left:20px !important;
-}
-.num-cell{
-  font-family:'JetBrains Mono',monospace !important;
-  font-size:13px !important;
-  color:#1A1D23 !important;
-}
-.num-cell.sourced-price{
-  color:#185FA5 !important;
-  font-weight:600;
-}
-
-.sel-btn{display:inline-flex;align-items:center;justify-content:center;min-width:80px;padding:5px 14px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;border:2px solid;font-family:'DM Sans',sans-serif;transition:all 0.15s;letter-spacing:0.3px;}
-.sel-btn.selected{background:#3B6D11;color:#fff;border-color:#3B6D11;}
+.low-star{color:#3B6D11 !important;font-size:10px;margin-left:2px;font-weight:700;}
+.sel-btn{display:inline-flex;align-items:center;justify-content:center;min-width:85px;padding:5px 12px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;border:2px solid;font-family:'DM Sans',sans-serif;transition:all 0.15s;white-space:nowrap;}
+.sel-btn.selected{background:#3B6D11;color:#fff !important;border-color:#3B6D11;}
 .sel-btn.selected:hover{background:#27500A;border-color:#27500A;}
-.sel-btn.unselected{background:#fff;color:#5F94CE;border-color:#5F94CE;}
+.sel-btn.unselected{background:#fff;color:#5F94CE !important;border-color:#5F94CE;}
 .sel-btn.unselected:hover{background:#deeaf7;}
-
 .footer-bar{background:#1a3a6e;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;}
 .footer-totals{display:flex;gap:20px;flex-wrap:wrap;}
 .footer-item{font-size:11px;color:rgba(255,255,255,0.7);}
-.footer-item strong{color:#fff;font-family:'JetBrains Mono',monospace;}
-
+.footer-item strong{color:#fff !important;font-family:'JetBrains Mono',monospace;}
 .msg-center{text-align:center;padding:40px;color:#9BA3B0;font-size:13px;}
 .msg-error{color:#A32D2D;background:#FCEBEB;border-radius:8px;padding:16px;margin:16px;font-size:13px;}
-
-/* Success state */
 #success-panel{display:none;padding:16px;}
 .success-banner{background:#EAF3DE;border:1px solid #C0DD97;border-radius:8px;padding:16px 20px;margin-bottom:16px;display:flex;align-items:center;gap:12px;}
-.success-icon{width:36px;height:36px;background:#3B6D11;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:16px;flex-shrink:0;}
-.success-title{font-size:14px;font-weight:600;color:#3B6D11;}
-.success-sub{font-size:12px;color:#27500A;margin-top:2px;}
+.success-icon{width:36px;height:36px;background:#3B6D11;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff !important;font-size:16px;flex-shrink:0;}
+.success-title{font-size:14px;font-weight:600;color:#3B6D11 !important;}
+.success-sub{font-size:12px;color:#27500A !important;margin-top:2px;}
 .summary-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px;}
 .summary-card{background:#fff;border-radius:8px;border:1px solid #E1E4EA;padding:12px 14px;}
-.summary-lbl{font-size:10px;color:#9BA3B0;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;}
-.summary-val{font-size:18px;font-weight:600;font-family:'JetBrains Mono',monospace;color:#1A1D23;}
+.summary-lbl{font-size:10px;color:#9BA3B0 !important;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;}
+.summary-val{font-size:18px;font-weight:600;font-family:'JetBrains Mono',monospace;color:#1A1D23 !important;}
 .supplier-summary{background:#fff;border-radius:8px;border:1px solid #E1E4EA;overflow:hidden;margin-bottom:16px;}
-.supplier-summary-header{background:#5F94CE;color:#fff;padding:10px 14px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;}
+.supplier-summary-header{background:#5F94CE;color:#fff !important;padding:10px 14px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;}
 .supplier-summary-row{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid #E1E4EA;}
 .supplier-summary-row:last-child{border-bottom:none;}
 .supplier-summary-name{font-size:13px;font-weight:500;color:#1A1D23 !important;}
-.supplier-summary-amt{font-size:13px;font-weight:600;font-family:'JetBrains Mono',monospace;color:#185FA5;}
+.supplier-summary-amt{font-size:13px;font-weight:600;font-family:'JetBrains Mono',monospace;color:#185FA5 !important;}
 .success-actions{display:flex;gap:10px;justify-content:flex-end;}
 </style>
 </head>
@@ -167,6 +132,12 @@ td.muted{color:#9BA3B0 !important;font-size:13px !important;}
       <div class="stat-card"><div class="stat-lbl">Amount sourced</div><div class="stat-val green" id="st-amt">$0.00</div></div>
     </div>
 
+    <div id="multi-supplier-warn">
+      <div class="warn-title">⚠️ Multiple suppliers selected</div>
+      <div class="warn-body">You have selected material from <span class="warn-suppliers" id="warn-supplier-count">0</span> different suppliers: <span class="warn-suppliers" id="warn-supplier-names"></span>.<br>
+      Splitting an order across suppliers may affect package pricing — a supplier who quoted expecting the full order may revise unit prices if only some items are awarded to them. Confirm this split is intentional before saving.</div>
+    </div>
+
     <div class="toolbar">
       <div class="toolbar-left">
         <button class="btn btn-outline" onclick="sourceAllAvailable()">Source all available</button>
@@ -174,6 +145,13 @@ td.muted{color:#9BA3B0 !important;font-size:13px !important;}
         <span class="sel-info"><span id="sel-count">0</span> of <span id="sel-total">0</span> items sourced</span>
       </div>
       <button class="btn btn-success" id="confirm-btn" onclick="confirmSourcing()" disabled>Confirm sourcing &amp; save</button>
+    </div>
+
+    <div class="filter-bar">
+      <label>Auto-select by supplier:</label>
+      <select id="supplier-filter" onchange="filterBySupplier(this.value)">
+        <option value="">— Select a supplier to auto-select all their quoted items —</option>
+      </select>
     </div>
 
     <div class="table-wrap">
@@ -184,7 +162,7 @@ td.muted{color:#9BA3B0 !important;font-size:13px !important;}
       <table>
         <thead>
           <tr>
-            <th>#</th>
+            <th style="width:28px;">#</th>
             <th>Description</th>
             <th class="c">Qty</th>
             <th class="r">Unit wt</th>
@@ -193,12 +171,13 @@ td.muted{color:#9BA3B0 !important;font-size:13px !important;}
             <th class="r">Price/lb</th>
             <th class="r">Unit price</th>
             <th class="r">Total price</th>
+            <th class="c">Lead time</th>
             <th>Item status</th>
             <th class="c">Source?</th>
           </tr>
         </thead>
         <tbody id="main-tbody">
-          <tr><td colspan="11" class="msg-center">Loading...</td></tr>
+          <tr><td colspan="12" class="msg-center">Loading...</td></tr>
         </tbody>
       </table>
       <div class="footer-bar">
@@ -206,6 +185,7 @@ td.muted{color:#9BA3B0 !important;font-size:13px !important;}
           <div class="footer-item">Sourced weight: <strong id="f-wt">0 lbs</strong></div>
           <div class="footer-item">Sourced amount: <strong id="f-amt">$0.00</strong></div>
           <div class="footer-item">Progress: <strong id="f-prog">0 of 0</strong></div>
+          <div class="footer-item">Suppliers: <strong id="f-suppliers">—</strong></div>
         </div>
         <button class="btn btn-success" id="confirm-btn2" onclick="confirmSourcing()" disabled>Confirm sourcing &amp; save</button>
       </div>
@@ -238,36 +218,20 @@ td.muted{color:#9BA3B0 !important;font-size:13px !important;}
 
 <script>
 var APP = 'type-formsheet-2-18-21';
-var ACCOUNT = 'mark_sentrymetal';
-var quoteId = null;
-var quoteRef = '';
-var quoteDesc = '';
-var allRecords = [];
-var lineGroups = {};
-var selections = {};
+var quoteId = null, quoteRef = '', quoteDesc = '';
+var allRecords = [], lineGroups = {}, selections = {}, supplierMap = {};
 
 function setStatus(msg){ var el=document.getElementById('status-bar'); if(el) el.textContent=msg; }
 
-function fmt(n){
-  if(n==null||n===''||isNaN(parseFloat(n))) return '—';
-  return '$'+parseFloat(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
-}
-function fmtLb(n){
-  if(n==null||n===''||isNaN(parseFloat(n))) return '—';
-  return parseFloat(n).toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:4})+' lbs';
-}
-function fmtPl(n){
-  if(n==null||n===''||isNaN(parseFloat(n))) return '—';
-  return '$'+parseFloat(n).toFixed(4);
-}
+function fmt(n){ if(n==null||n===''||isNaN(parseFloat(n))) return '—'; return '$'+parseFloat(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function fmtLb(n){ if(n==null||n===''||isNaN(parseFloat(n))) return '—'; return parseFloat(n).toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:2})+' lbs'; }
+function fmtPl(n){ if(n==null||n===''||isNaN(parseFloat(n))) return '—'; return '$'+parseFloat(n).toFixed(4); }
 
 function showError(msg){
   document.getElementById('loading-state').style.display='none';
   document.getElementById('main-panel').style.display='none';
   document.getElementById('success-panel').style.display='none';
-  var el=document.getElementById('error-state');
-  el.textContent=msg;
-  el.style.display='block';
+  var el=document.getElementById('error-state'); el.textContent=msg; el.style.display='block';
 }
 
 function showMainPanel(){
@@ -275,8 +239,7 @@ function showMainPanel(){
   document.getElementById('error-state').style.display='none';
   document.getElementById('success-panel').style.display='none';
   document.getElementById('main-panel').style.display='block';
-  renderTable();
-  updateStats();
+  renderTable(); updateStats();
 }
 
 function loadRecords(){
@@ -285,264 +248,248 @@ function loadRecords(){
     appName: APP,
     reportName: 'Customer_New_RFQ_Acceptance_Detail_Report',
     criteria: '(Quote_LU == '+quoteId+')',
-    page: 1,
-    pageSize: 200
+    page: 1, pageSize: 200
   }).then(function(resp){
-    setStatus('records loaded: '+(resp&&resp.data?resp.data.length:0));
     if(resp && resp.data && resp.data.length > 0){
       allRecords = resp.data;
-      processRecords();
-      showMainPanel();
+      console.log('FIELD KEYS:', Object.keys(allRecords[0]));
+      console.log('RECORD SAMPLE:', JSON.stringify(allRecords[0]));
+      processRecords(); showMainPanel();
     } else {
-      showError('No sourcing records found for this quote. Please ensure the quote close-out has been completed first.');
+      showError('No sourcing records found for this quote.');
     }
-  }).catch(function(err){
-    setStatus('load error: '+JSON.stringify(err).substring(0,40));
-    showError('Error loading records: '+JSON.stringify(err));
-  });
+  }).catch(function(err){ showError('Error loading records: '+JSON.stringify(err)); });
 }
 
 function processRecords(){
-  lineGroups={};
-  selections={};
+  lineGroups={}; selections={}; supplierMap={};
   allRecords.forEach(function(rec){
     var ln = rec.CustRFQAccept_Line_Item;
     if(!lineGroups[ln]) lineGroups[ln]=[];
     lineGroups[ln].push(rec);
-    // Default all to No — user selects manually
+    var suppName = rec.CAD_Supplier_Name || '';
+    var suppId = (rec.CAD_Supplier_LU && rec.CAD_Supplier_LU.ID) ? rec.CAD_Supplier_LU.ID : (rec.CAD_Supplier_LU || suppName);
+    if(suppName && suppId){
+      if(!supplierMap[suppId]) supplierMap[suppId]={name:suppName, lines:[]};
+      if(supplierMap[suppId].lines.indexOf(String(ln))===-1) supplierMap[suppId].lines.push(String(ln));
+    }
   });
-  document.getElementById('hdr-title').textContent = 'Material sourcing — '+(quoteRef||'Quote');
-  document.getElementById('hdr-sub').textContent = quoteDesc||'';
-  // Debug: log all field keys so we can confirm field names
-  if(allRecords.length > 0){
-    console.log('FIELD KEYS:', Object.keys(allRecords[0]));
-    console.log('FIRST RECORD SAMPLE:', JSON.stringify(allRecords[0]));
-    setStatus('loaded '+allRecords.length+' recs | keys: '+Object.keys(allRecords[0]).join(',').substring(0,80));
-  }
+  document.getElementById('hdr-title').textContent='Material sourcing — '+(quoteRef||'Quote');
+  document.getElementById('hdr-sub').textContent=quoteDesc||'';
+
+  // Populate supplier dropdown
+  var sel=document.getElementById('supplier-filter');
+  sel.innerHTML='<option value="">— Select a supplier to auto-select all their quoted items —</option>';
+  Object.keys(supplierMap).sort(function(a,b){ return supplierMap[a].name.localeCompare(supplierMap[b].name); }).forEach(function(suppId){
+    var s=supplierMap[suppId];
+    var opt=document.createElement('option');
+    opt.value=suppId;
+    opt.textContent=s.name+' ('+s.lines.length+' line'+(s.lines.length>1?'s':'')+')';
+    sel.appendChild(opt);
+  });
+  setStatus('loaded '+allRecords.length+' recs | '+Object.keys(supplierMap).length+' suppliers');
 }
+
+function filterBySupplier(suppId){
+  if(!suppId) return;
+  var s=supplierMap[suppId]; if(!s) return;
+  s.lines.forEach(function(ln){
+    var rows=lineGroups[ln]; if(!rows) return;
+    var rec=rows.find(function(r){
+      var rId=(r.CAD_Supplier_LU&&r.CAD_Supplier_LU.ID)?r.CAD_Supplier_LU.ID:(r.CAD_Supplier_LU||r.CAD_Supplier_Name);
+      return String(rId)===String(suppId)||r.CAD_Supplier_Name===s.name;
+    });
+    if(rec) selections[ln]=rec.ID;
+  });
+  document.getElementById('supplier-filter').value='';
+  renderTable(); updateStats();
+}
+
+function getLeadTime(rec){ return rec.CAD_Lead_Time||rec.Lead_Time||rec.CAD_Delivery_Days||rec.Delivery_Days||rec.CAD_Lead_Time_Days||rec.SV_Lead_Time||''; }
+function getItemStatus(rec){ return rec.CAD_Item_Verification_Status||rec.CAD_Verification_Status||rec.Item_Status||rec.CAD_Status||rec.SV_Status||''; }
 
 function renderTable(){
-  var tb = document.getElementById('main-tbody');
-  var html = '';
-  var sortedLines = Object.keys(lineGroups).sort(function(a,b){return parseInt(a)-parseInt(b);});
-  document.getElementById('sel-total').textContent = sortedLines.length;
+  var tb=document.getElementById('main-tbody');
+  var html='';
+  var sortedLines=Object.keys(lineGroups).sort(function(a,b){return parseInt(a)-parseInt(b);});
+  document.getElementById('sel-total').textContent=sortedLines.length;
 
   sortedLines.forEach(function(ln){
-    var rows = lineGroups[ln];
-    var selectedId = selections[ln];
-    var hasQuote = rows.some(function(r){
-      return r.CAD_Item_Verification_Status && r.CAD_Item_Verification_Status !== 'No Quote';
-    });
-    var desc = rows[0].CAD_Item_Info || rows[0].CAD_Material_Description || '—';
-    var allocBadge = selectedId ? '<span class="badge badge-green" style="font-size:10px;">Sourced</span>' :
-      (!hasQuote ? '<span class="badge badge-amber" style="font-size:10px;">No quotes</span>' : '');
+    var rows=lineGroups[ln];
+    var selectedId=selections[ln];
+    var desc=rows[0].CAD_Item_Info||rows[0].CAD_Material_Description||'—';
+    var hasAnyQuote=rows.some(function(r){ return (r.CAD_Supplier_Name&&r.CAD_Supplier_Name!=='')||(r.CAD_Price_Per_Lb&&parseFloat(r.CAD_Price_Per_Lb)>0); });
+    var allocBadge=selectedId?'<span class="badge badge-green" style="font-size:10px;">Sourced</span>':(!hasAnyQuote?'<span class="badge badge-amber" style="font-size:10px;">No quotes</span>':'');
 
-    html += '<tr class="line-hdr"><td colspan="11">Line '+ln+
-      ' &nbsp;<span class="line-hdr-desc">'+desc+'</span>'+
-      (allocBadge ? '&nbsp;&nbsp;'+allocBadge : '')+'</td></tr>';
+    html+='<tr class="line-hdr"><td colspan="12">Line '+ln+' &nbsp;<span class="line-hdr-desc">'+desc+'</span>'+(allocBadge?'&nbsp;&nbsp;'+allocBadge:'')+'</td></tr>';
 
-    var prices = rows
-      .filter(function(r){ return r.CAD_Price_Per_Lb && parseFloat(r.CAD_Price_Per_Lb)>0; })
-      .map(function(r){ return parseFloat(r.CAD_Price_Per_Lb); });
-    var minPrice = prices.length > 0 ? Math.min.apply(null,prices) : null;
+    var prices=rows.filter(function(r){return r.CAD_Price_Per_Lb&&parseFloat(r.CAD_Price_Per_Lb)>0;}).map(function(r){return parseFloat(r.CAD_Price_Per_Lb);});
+    var minPrice=prices.length>0?Math.min.apply(null,prices):null;
 
     rows.forEach(function(rec){
-      var isSourced = selectedId === rec.ID;
-      // Show Select button if row has a supplier name or any price — don't block on verification status
-      var hasSupplier = rec.CAD_Supplier_Name && rec.CAD_Supplier_Name !== '' && rec.CAD_Supplier_Name !== '—';
-      var hasPrice = rec.CAD_Price_Per_Lb && parseFloat(rec.CAD_Price_Per_Lb) > 0;
-      var canSource = hasSupplier || hasPrice;
-      var isLow = minPrice && prices.length > 1 && parseFloat(rec.CAD_Price_Per_Lb) === minPrice;
+      var isSourced=selectedId===rec.ID;
+      var hasSupplier=rec.CAD_Supplier_Name&&rec.CAD_Supplier_Name!=='';
+      var hasPrice=rec.CAD_Price_Per_Lb&&parseFloat(rec.CAD_Price_Per_Lb)>0;
+      var canSource=hasSupplier||hasPrice;
+      var isLow=minPrice&&prices.length>1&&parseFloat(rec.CAD_Price_Per_Lb)===minPrice;
 
-      var togHtml = '';
-      if(canSource){
-        togHtml = isSourced
-          ? '<button class="sel-btn selected" onclick="setSelection('+ln+',\''+rec.ID+'\',false)">&#10003; Selected</button>'
-          : '<button class="sel-btn unselected" onclick="setSelection('+ln+',\''+rec.ID+'\',true)">Select</button>';
-      } else {
-        togHtml = '<span class="badge badge-gray" style="font-size:10px;">No quote</span>';
-      }
+      var togHtml=canSource
+        ?(isSourced?'<button class="sel-btn selected" onclick="setSelection('+ln+',\''+rec.ID+'\',false)">&#10003; Selected</button>':'<button class="sel-btn unselected" onclick="setSelection('+ln+',\''+rec.ID+'\',true)">Select</button>')
+        :'<span class="badge badge-gray" style="font-size:10px;">No quote</span>';
 
-      var statusHtml = rec.CAD_Item_Verification_Status ?
-        '<span class="badge badge-blue" style="font-size:10px;">'+rec.CAD_Item_Verification_Status+'</span>' : '—';
+      var itemStatus=getItemStatus(rec);
+      var statusHtml=itemStatus?'<span class="badge badge-blue" style="font-size:10px;">'+itemStatus+'</span>':'<span style="color:#9BA3B0;font-size:11px;">—</span>';
 
-      var priceHtml = fmtPl(rec.CAD_Price_Per_Lb);
-      if(isLow && prices.length > 1) priceHtml += '<span class="low-star">★ low</span>';
+      var leadTime=getLeadTime(rec);
+      var leadDays=leadTime?parseInt(leadTime):0;
+      var leadClass='lead-cell'+(leadDays>14?' slow':'');
+      var leadHtml=leadTime?(leadDays?leadDays+' days':leadTime):'<span style="color:#c0c5d0;">—</span>';
 
-      var rowDesc = rec.CAD_Item_Info || rec.CAD_Material_Description || rec.Description || desc || '—';
+      var priceHtml=fmtPl(rec.CAD_Price_Per_Lb)+(isLow&&prices.length>1?'<span class="low-star">★</span>':'');
+      var rowDesc=rec.CAD_Item_Info||rec.CAD_Material_Description||rec.Description||desc||'—';
 
-      html += '<tr class="sup-row '+(isSourced?'sourced':'')+' '+(!canSource?'no-quote':'')+'">';
-      html += '<td class="line-num">'+ln+'</td>';
-      html += '<td class="desc-cell">'+rowDesc+'</td>';
-      html += '<td class="c num-cell">'+(rec.CAD_Quantity||'—')+'</td>';
-      html += '<td class="r num-cell">'+fmtLb(rec.CAD_Unit_Weight)+'</td>';
-      html += '<td class="r num-cell">'+fmtLb(rec.CAD_Calc_Weight)+'</td>';
-      html += '<td><span class="sup-tag '+(canSource?'':'nr')+'">'+(rec.CAD_Supplier_Name||'—')+'</span></td>';
-      html += '<td class="r num-cell">'+priceHtml+'</td>';
-      html += '<td class="r num-cell">'+fmt(rec.CAD_Unit_Price)+'</td>';
-      html += '<td class="r num-cell'+(isSourced?' sourced-price':'')+'">'+fmt(rec.CAD_Total_Price)+'</td>';
-      html += '<td>'+statusHtml+'</td>';
-      html += '<td class="c">'+togHtml+'</td>';
-      html += '</tr>';
+      html+='<tr class="sup-row'+(isSourced?' sourced':'')+(!canSource?' no-quote':'')+'">';
+      html+='<td class="line-num">'+ln+'</td>';
+      html+='<td class="desc-cell">'+rowDesc+'</td>';
+      html+='<td class="c num-cell">'+(rec.CAD_Quantity||'—')+'</td>';
+      html+='<td class="r num-cell">'+fmtLb(rec.CAD_Unit_Weight)+'</td>';
+      html+='<td class="r num-cell">'+fmtLb(rec.CAD_Calc_Weight)+'</td>';
+      html+='<td><span class="sup-tag'+(canSource?'':' nr')+'">'+(rec.CAD_Supplier_Name||'—')+'</span></td>';
+      html+='<td class="r num-cell">'+priceHtml+'</td>';
+      html+='<td class="r num-cell">'+fmt(rec.CAD_Unit_Price)+'</td>';
+      html+='<td class="r num-cell'+(isSourced?' sourced-price':'')+'">'+fmt(rec.CAD_Total_Price)+'</td>';
+      html+='<td class="'+leadClass+'">'+leadHtml+'</td>';
+      html+='<td>'+statusHtml+'</td>';
+      html+='<td class="c">'+togHtml+'</td>';
+      html+='</tr>';
     });
   });
-
-  tb.innerHTML = html;
+  tb.innerHTML=html;
 }
 
-function setSelection(ln, recId, val){
-  if(val){
-    selections[ln] = recId;
-  } else {
-    if(selections[ln] === recId) delete selections[ln];
-  }
-  renderTable();
-  updateStats();
+function setSelection(ln,recId,val){
+  if(val){ selections[ln]=recId; } else { if(selections[ln]===recId) delete selections[ln]; }
+  renderTable(); updateStats();
 }
 
 function sourceAllAvailable(){
   Object.keys(lineGroups).forEach(function(ln){
     if(selections[ln]) return;
-    var rows = lineGroups[ln];
-    var available = rows.filter(function(r){
-      return (r.CAD_Supplier_Name && r.CAD_Supplier_Name !== '') || (r.CAD_Price_Per_Lb && parseFloat(r.CAD_Price_Per_Lb) > 0);
-    });
-    if(available.length === 0) return;
-    var withPrice = available.filter(function(r){ return parseFloat(r.CAD_Price_Per_Lb)>0; });
-    var pick = withPrice.length > 0
-      ? withPrice.reduce(function(a,b){ return parseFloat(a.CAD_Price_Per_Lb)<parseFloat(b.CAD_Price_Per_Lb)?a:b; })
-      : available[0];
-    selections[ln] = pick.ID;
+    var rows=lineGroups[ln];
+    var available=rows.filter(function(r){ return (r.CAD_Supplier_Name&&r.CAD_Supplier_Name!=='')||(r.CAD_Price_Per_Lb&&parseFloat(r.CAD_Price_Per_Lb)>0); });
+    if(available.length===0) return;
+    var withPrice=available.filter(function(r){return parseFloat(r.CAD_Price_Per_Lb)>0;});
+    var pick=withPrice.length>0?withPrice.reduce(function(a,b){return parseFloat(a.CAD_Price_Per_Lb)<parseFloat(b.CAD_Price_Per_Lb)?a:b;}):available[0];
+    selections[ln]=pick.ID;
   });
-  renderTable();
-  updateStats();
+  renderTable(); updateStats();
 }
 
-function clearAll(){
-  selections={};
-  renderTable();
-  updateStats();
-}
+function clearAll(){ selections={}; renderTable(); updateStats(); }
 
 function updateStats(){
-  var totalLines = Object.keys(lineGroups).length;
-  var sourcedCount = Object.keys(selections).length;
-  var totalWt = 0, totalAmt = 0;
+  var totalLines=Object.keys(lineGroups).length;
+  var sourcedCount=Object.keys(selections).length;
+  var totalWt=0, totalAmt=0;
+  var selectedSuppliers={};
+
   Object.keys(selections).forEach(function(ln){
-    var rec = allRecords.find(function(r){ return r.ID===selections[ln]; });
+    var rec=allRecords.find(function(r){return r.ID===selections[ln];});
     if(rec){
-      totalWt += parseFloat(rec.CAD_Calc_Weight)||0;
-      totalAmt += parseFloat(rec.CAD_Total_Price)||0;
+      totalWt+=parseFloat(rec.CAD_Calc_Weight)||0;
+      totalAmt+=parseFloat(rec.CAD_Total_Price)||0;
+      var suppName=rec.CAD_Supplier_Name||'Unknown';
+      selectedSuppliers[suppName]=true;
     }
   });
-  document.getElementById('st-total').textContent = totalLines;
-  document.getElementById('st-sourced').textContent = sourcedCount;
-  document.getElementById('st-remain').textContent = totalLines - sourcedCount;
-  document.getElementById('st-amt').textContent = fmt(totalAmt);
-  document.getElementById('sel-count').textContent = sourcedCount;
-  document.getElementById('f-wt').textContent = fmtLb(totalWt);
-  document.getElementById('f-amt').textContent = fmt(totalAmt);
-  document.getElementById('f-prog').textContent = sourcedCount+' of '+totalLines;
-  var hasAny = sourcedCount > 0;
-  document.getElementById('confirm-btn').disabled = !hasAny;
-  document.getElementById('confirm-btn2').disabled = !hasAny;
+
+  var suppNames=Object.keys(selectedSuppliers);
+  var suppCount=suppNames.length;
+
+  document.getElementById('st-total').textContent=totalLines;
+  document.getElementById('st-sourced').textContent=sourcedCount;
+  document.getElementById('st-remain').textContent=totalLines-sourcedCount;
+  document.getElementById('st-amt').textContent=fmt(totalAmt);
+  document.getElementById('sel-count').textContent=sourcedCount;
+  document.getElementById('f-wt').textContent=fmtLb(totalWt);
+  document.getElementById('f-amt').textContent=fmt(totalAmt);
+  document.getElementById('f-prog').textContent=sourcedCount+' of '+totalLines;
+  document.getElementById('f-suppliers').textContent=suppCount>0?suppCount+' supplier'+(suppCount>1?'s':''):'—';
+
+  // Multi-supplier warning
+  var warnEl=document.getElementById('multi-supplier-warn');
+  if(suppCount>1){
+    document.getElementById('warn-supplier-count').textContent=suppCount;
+    document.getElementById('warn-supplier-names').textContent=suppNames.join(', ');
+    warnEl.style.display='block';
+  } else { warnEl.style.display='none'; }
+
+  var hasAny=sourcedCount>0;
+  document.getElementById('confirm-btn').disabled=!hasAny;
+  document.getElementById('confirm-btn2').disabled=!hasAny;
 }
 
 function confirmSourcing(){
-  if(Object.keys(selections).length === 0) return;
-  var overlay = document.getElementById('saving-overlay');
-  overlay.classList.add('show');
-  document.getElementById('confirm-btn').disabled = true;
-  document.getElementById('confirm-btn2').disabled = true;
+  if(Object.keys(selections).length===0) return;
+  document.getElementById('saving-overlay').classList.add('show');
+  document.getElementById('confirm-btn').disabled=true;
+  document.getElementById('confirm-btn2').disabled=true;
 
-  var updates = [];
+  var updates=[];
   allRecords.forEach(function(rec){
-    var ln = rec.CustRFQAccept_Line_Item;
-    var newPrefer = (selections[ln] === rec.ID) ? 'YES' : 'NO';
-    updates.push({id: rec.ID, prefer: newPrefer, rec: rec, ln: ln});
+    var ln=rec.CustRFQAccept_Line_Item;
+    updates.push({id:rec.ID, prefer:(selections[ln]===rec.ID)?'YES':'NO'});
   });
 
-  var idx = 0;
+  var idx=0;
   function nextUpdate(){
-    if(idx >= updates.length){
-      updateQuoteStatus();
-      return;
-    }
-    var item = updates[idx]; idx++;
+    if(idx>=updates.length){ updateQuoteStatus(); return; }
+    var item=updates[idx]; idx++;
     ZOHO.CREATOR.API.updateRecord({
-      appName: APP,
-      reportName: 'Customer_New_RFQ_Acceptance_Detail_Report',
-      id: item.id,
-      data: {data: {PREFER: item.prefer}}
-    }).then(function(){ nextUpdate(); })
-    .catch(function(err){
-      setStatus('update err rec '+item.id+': '+JSON.stringify(err).substring(0,30));
-      nextUpdate();
-    });
+      appName:APP, reportName:'Customer_New_RFQ_Acceptance_Detail_Report',
+      id:item.id, data:{data:{PREFER:item.prefer}}
+    }).then(function(){nextUpdate();}).catch(function(){nextUpdate();});
   }
   nextUpdate();
 }
 
 function updateQuoteStatus(){
-  setStatus('updating quote status...');
   ZOHO.CREATOR.API.updateRecord({
-    appName: APP,
-    reportName: 'All_Quotes',
-    id: quoteId,
-    data: {data: {Status: 'Sourcing Complete'}}
-  }).then(function(){ updateSVFTotals(); })
-  .catch(function(err){
-    setStatus('quote status err: '+JSON.stringify(err).substring(0,30));
-    updateSVFTotals();
-  });
+    appName:APP, reportName:'All_Quotes', id:quoteId,
+    data:{data:{Status:'Sourcing Complete'}}
+  }).then(function(){updateSVFTotals();}).catch(function(){updateSVFTotals();});
 }
 
 function updateSVFTotals(){
-  setStatus('updating supplier totals...');
-  var supplierTotals = {};
+  var supplierTotals={};
   Object.keys(selections).forEach(function(ln){
-    var rec = allRecords.find(function(r){ return r.ID===selections[ln]; });
-    if(!rec) return;
-    var suppId = rec.CAD_Supplier_LU && rec.CAD_Supplier_LU.ID ? rec.CAD_Supplier_LU.ID : rec.CAD_Supplier_LU;
-    var suppName = rec.CAD_Supplier_Name || suppId;
-    if(!suppId) return;
-    if(!supplierTotals[suppId]) supplierTotals[suppId] = {name: suppName, total: 0, wt: 0, items: 0};
-    supplierTotals[suppId].total += parseFloat(rec.CAD_Total_Price)||0;
-    supplierTotals[suppId].wt += parseFloat(rec.CAD_Calc_Weight)||0;
+    var rec=allRecords.find(function(r){return r.ID===selections[ln];}); if(!rec) return;
+    var suppId=(rec.CAD_Supplier_LU&&rec.CAD_Supplier_LU.ID)?rec.CAD_Supplier_LU.ID:rec.CAD_Supplier_LU;
+    var suppName=rec.CAD_Supplier_Name||suppId; if(!suppId) return;
+    if(!supplierTotals[suppId]) supplierTotals[suppId]={name:suppName,total:0,wt:0,items:0};
+    supplierTotals[suppId].total+=parseFloat(rec.CAD_Total_Price)||0;
+    supplierTotals[suppId].wt+=parseFloat(rec.CAD_Calc_Weight)||0;
     supplierTotals[suppId].items++;
   });
-
-  var suppKeys = Object.keys(supplierTotals);
-  var sIdx = 0;
+  var suppKeys=Object.keys(supplierTotals); var sIdx=0;
   function nextSupplier(){
-    if(sIdx >= suppKeys.length){
-      onSaveComplete(supplierTotals);
-      return;
-    }
-    var suppId = suppKeys[sIdx]; sIdx++;
+    if(sIdx>=suppKeys.length){ onSaveComplete(supplierTotals); return; }
+    var suppId=suppKeys[sIdx]; sIdx++;
     ZOHO.CREATOR.API.getAllRecords({
-      appName: APP,
-      reportName: 'All_Supplier_Verify_Form_Report',
-      criteria: '(SV_Quote_Form == '+quoteId+' && SV_Supplier_Entry_Form == '+suppId+')',
-      page: 1,
-      pageSize: 5
+      appName:APP, reportName:'All_Supplier_Verify_Form_Report',
+      criteria:'(SV_Quote_Form == '+quoteId+' && SV_Supplier_Entry_Form == '+suppId+')',
+      page:1, pageSize:5
     }).then(function(resp){
-      if(resp && resp.data && resp.data.length > 0){
-        var svf = resp.data[0];
-        var totalAmt = parseFloat(svf.Total_Amount_Currency)||1;
-        var allocAmt = supplierTotals[suppId].total;
-        var pct = Math.round((allocAmt/totalAmt)*100);
+      if(resp&&resp.data&&resp.data.length>0){
+        var svf=resp.data[0];
+        var allocAmt=supplierTotals[suppId].total;
+        var pct=Math.round((allocAmt/(parseFloat(svf.Total_Amount_Currency)||1))*100);
         ZOHO.CREATOR.API.updateRecord({
-          appName: APP,
-          reportName: 'All_Supplier_Verify_Form_Report',
-          id: svf.ID,
-          data: {data: {Allocation_Amount: allocAmt, Allocation_Percentage: pct}}
-        }).then(function(){ nextSupplier(); })
-        .catch(function(){ nextSupplier(); });
-      } else {
-        nextSupplier();
-      }
-    }).catch(function(){ nextSupplier(); });
+          appName:APP, reportName:'All_Supplier_Verify_Form_Report', id:svf.ID,
+          data:{data:{Allocation_Amount:allocAmt,Allocation_Percentage:pct}}
+        }).then(function(){nextSupplier();}).catch(function(){nextSupplier();});
+      } else { nextSupplier(); }
+    }).catch(function(){nextSupplier();});
   }
   nextSupplier();
 }
@@ -550,142 +497,56 @@ function updateSVFTotals(){
 function onSaveComplete(supplierTotals){
   document.getElementById('saving-overlay').classList.remove('show');
   setStatus('save complete');
-
-  var totalSourced = Object.keys(selections).length;
-  var totalWt = 0, totalAmt = 0;
+  var totalSourced=Object.keys(selections).length, totalWt=0, totalAmt=0;
   Object.keys(selections).forEach(function(ln){
-    var rec = allRecords.find(function(r){ return r.ID===selections[ln]; });
-    if(rec){
-      totalWt += parseFloat(rec.CAD_Calc_Weight)||0;
-      totalAmt += parseFloat(rec.CAD_Total_Price)||0;
-    }
+    var rec=allRecords.find(function(r){return r.ID===selections[ln];});
+    if(rec){ totalWt+=parseFloat(rec.CAD_Calc_Weight)||0; totalAmt+=parseFloat(rec.CAD_Total_Price)||0; }
   });
-
-  document.getElementById('sum-items').textContent = totalSourced;
-  document.getElementById('sum-wt').textContent = fmtLb(totalWt);
-  document.getElementById('sum-amt').textContent = fmt(totalAmt);
-  document.getElementById('success-sub').textContent =
-    totalSourced+' item(s) sourced across '+Object.keys(supplierTotals).length+' supplier(s). Quote status updated to Sourcing Complete.';
-
-  var suppRows = '';
+  document.getElementById('sum-items').textContent=totalSourced;
+  document.getElementById('sum-wt').textContent=fmtLb(totalWt);
+  document.getElementById('sum-amt').textContent=fmt(totalAmt);
+  document.getElementById('success-sub').textContent=totalSourced+' item(s) sourced across '+Object.keys(supplierTotals).length+' supplier(s). Quote status updated to Sourcing Complete.';
+  var suppRows='';
   Object.keys(supplierTotals).forEach(function(suppId){
-    var s = supplierTotals[suppId];
-    suppRows += '<div class="supplier-summary-row">'+
-      '<div><div class="supplier-summary-name">'+s.name+'</div>'+
-      '<div style="font-size:11px;color:#9BA3B0;">'+s.items+' item(s) &nbsp;|&nbsp; '+fmtLb(s.wt)+'</div></div>'+
-      '<div class="supplier-summary-amt">'+fmt(s.total)+'</div>'+
-      '</div>';
+    var s=supplierTotals[suppId];
+    suppRows+='<div class="supplier-summary-row"><div><div class="supplier-summary-name">'+s.name+'</div><div style="font-size:11px;color:#9BA3B0;">'+s.items+' item(s) | '+fmtLb(s.wt)+'</div></div><div class="supplier-summary-amt">'+fmt(s.total)+'</div></div>';
   });
-  document.getElementById('supplier-summary-rows').innerHTML = suppRows;
-
-  document.getElementById('main-panel').style.display = 'none';
-  document.getElementById('success-panel').style.display = 'block';
+  document.getElementById('supplier-summary-rows').innerHTML=suppRows;
+  document.getElementById('main-panel').style.display='none';
+  document.getElementById('success-panel').style.display='block';
 }
 
 function proceedToPO(){
-  setStatus('navigating to PO...');
-  try {
-    ZOHO.CREATOR.UTIL.setValueToField('quote_sourcing_complete', 'true');
-  } catch(e){}
-  window.parent.postMessage({type: 'sourcing_complete', quote_id: quoteId}, '*');
+  try{ZOHO.CREATOR.UTIL.setValueToField('quote_sourcing_complete','true');}catch(e){}
+  window.parent.postMessage({type:'sourcing_complete',quote_id:quoteId},'*');
 }
 
 function parseUrlParams(url){
-  try {
-    var search = url.indexOf('?') !== -1 ? url.split('?')[1] : '';
-    var params = {};
-    search.split('&').forEach(function(pair){
-      var parts = pair.split('=');
-      if(parts.length >= 2){
-        params[decodeURIComponent(parts[0])] = decodeURIComponent(parts.slice(1).join('='));
-      }
-    });
+  try{
+    var search=url.indexOf('?')!==-1?url.split('?')[1]:''; var params={};
+    search.split('&').forEach(function(pair){ var parts=pair.split('='); if(parts.length>=2) params[decodeURIComponent(parts[0])]=decodeURIComponent(parts.slice(1).join('=')); });
     return params;
-  } catch(e){ return {}; }
+  }catch(e){return {};}
 }
 
 ZOHO.CREATOR.init().then(function(){
-  // Force override any Zoho iframe styles that wash out text
-  var forceStyle = document.createElement('style');
-  forceStyle.innerHTML = 'body,td,th,div,span,button,p{font-family:"DM Sans",sans-serif !important;} td{color:#1A1D23 !important;font-size:13px !important;} .desc-cell{color:#1A1D23 !important;font-size:13px !important;} .num-cell{color:#1A1D23 !important;font-size:13px !important;} .line-num{color:#5F94CE !important;} .line-hdr td{color:#1a3a6e !important;} .line-hdr-desc{color:#2e5f8a !important;}';
-  document.head.appendChild(forceStyle);
+  // Inject styles after Zoho iframe loads to override any resets
+  var s=document.createElement('style');
+  s.innerHTML='body,td,th,p,div,span{font-family:"DM Sans",sans-serif !important;} td{color:#1A1D23 !important;font-size:13px !important;} .line-hdr td{color:#1a3a6e !important;} .line-hdr-desc{color:#2e5f8a !important;} .line-num{color:#5F94CE !important;} .desc-cell,.num-cell{color:#1A1D23 !important;} .num-cell.sourced-price{color:#185FA5 !important;} .lead-cell{color:#5F94CE !important;} .lead-cell.slow{color:#854F0B !important;} .sel-btn.selected{color:#fff !important;} .sel-btn.unselected{color:#5F94CE !important;} .sup-tag{color:#2e5f8a !important;} thead th{color:#fff !important;} .footer-item{color:rgba(255,255,255,0.7) !important;} .footer-item strong{color:#fff !important;} .badge-blue{color:#2e5f8a !important;} .badge-green{color:#3B6D11 !important;} .badge-amber{color:#854F0B !important;}';
+  document.head.appendChild(s);
 
   setStatus('SDK ready');
-
-  // Method 1 — Zoho query params
-  try {
-    var qp = ZOHO.CREATOR.UTIL.getQueryParams();
-    if(qp && qp.quote_id){
-      quoteId = qp.quote_id;
-      quoteRef = qp.quote_reference_number || '';
-      quoteDesc = qp.quote_description || '';
-      setStatus('params via SDK: '+quoteId);
-    }
-  } catch(e){ setStatus('SDK param err: '+e.message); }
-
-  // Method 2 — parent window URL
-  if(!quoteId){
-    try {
-      var parentParams = parseUrlParams(window.parent.location.href);
-      if(parentParams.quote_id){
-        quoteId = parentParams.quote_id;
-        quoteRef = parentParams.quote_reference_number || '';
-        quoteDesc = parentParams.quote_description || '';
-        setStatus('params via parent URL: '+quoteId);
-      }
-    } catch(e){ setStatus('parent URL err: '+e.message); }
-  }
-
-  // Method 3 — self URL
-  if(!quoteId){
-    try {
-      var selfParams = parseUrlParams(window.location.href);
-      if(selfParams.quote_id){
-        quoteId = selfParams.quote_id;
-        quoteRef = selfParams.quote_reference_number || '';
-        quoteDesc = selfParams.quote_description || '';
-        setStatus('params via self URL: '+quoteId);
-      }
-    } catch(e){ setStatus('self URL err: '+e.message); }
-  }
-
-  if(!quoteId){
-    showError('No quote ID found. Status: tried SDK params, parent URL, and self URL. Please ensure this widget is opened from the sourcing dashboard with a valid quote_id.');
-    return;
-  }
-
-  setStatus('quote_id: '+quoteId);
-  loadRecords();
+  try{ var qp=ZOHO.CREATOR.UTIL.getQueryParams(); if(qp&&qp.quote_id){quoteId=qp.quote_id;quoteRef=qp.quote_reference_number||'';quoteDesc=qp.quote_description||'';setStatus('SDK params: '+quoteId);} }catch(e){}
+  if(!quoteId){ try{ var pp=parseUrlParams(window.parent.location.href); if(pp.quote_id){quoteId=pp.quote_id;quoteRef=pp.quote_reference_number||'';quoteDesc=pp.quote_description||'';setStatus('parent URL: '+quoteId);} }catch(e){} }
+  if(!quoteId){ try{ var sp=parseUrlParams(window.location.href); if(sp.quote_id){quoteId=sp.quote_id;quoteRef=sp.quote_reference_number||'';quoteDesc=sp.quote_description||'';setStatus('self URL: '+quoteId);} }catch(e){} }
+  if(!quoteId){ showError('No quote ID found. Please open from the sourcing dashboard.'); return; }
+  setStatus('quote_id: '+quoteId); loadRecords();
 
 }).catch(function(err){
-  setStatus('SDK init failed, trying URL fallback...');
-
-  try {
-    var parentParams = parseUrlParams(window.parent.location.href);
-    if(parentParams.quote_id){
-      quoteId = parentParams.quote_id;
-      quoteRef = parentParams.quote_reference_number || '';
-      quoteDesc = parentParams.quote_description || '';
-    }
-  } catch(e){}
-
-  if(!quoteId){
-    try {
-      var selfParams = parseUrlParams(window.location.href);
-      if(selfParams.quote_id){
-        quoteId = selfParams.quote_id;
-        quoteRef = selfParams.quote_reference_number || '';
-        quoteDesc = selfParams.quote_description || '';
-      }
-    } catch(e){}
-  }
-
-  if(quoteId){
-    setStatus('SDK failed but got quote_id from URL: '+quoteId);
-    loadRecords();
-  } else {
-    showError('Widget SDK failed to initialize and no quote ID found in URL: '+JSON.stringify(err));
-  }
+  setStatus('SDK failed, trying URL...');
+  try{ var pp=parseUrlParams(window.parent.location.href); if(pp.quote_id){quoteId=pp.quote_id;quoteRef=pp.quote_reference_number||'';quoteDesc=pp.quote_description||'';} }catch(e){}
+  if(!quoteId){ try{ var sp=parseUrlParams(window.location.href); if(sp.quote_id){quoteId=sp.quote_id;quoteRef=sp.quote_reference_number||'';quoteDesc=sp.quote_description||'';} }catch(e){} }
+  if(quoteId){ loadRecords(); } else { showError('SDK failed and no quote ID in URL: '+JSON.stringify(err)); }
 });
 </script>
 </body>
