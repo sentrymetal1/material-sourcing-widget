@@ -240,7 +240,7 @@ function showMainPanel(){
 
 function loadRecords(){
   setStatus('loading records...');
-  ZOHO.CREATOR.API.getRecords({
+  ZOHO.CREATOR.API.getAllRecords({
     appName: APP,
     reportName: 'Customer_New_RFQ_Acceptance_Detail_Report',
     criteria: '(Quote_LU == '+quoteId+')',
@@ -470,7 +470,7 @@ function updateSVFTotals(){
       return;
     }
     var suppId = suppKeys[sIdx]; sIdx++;
-    ZOHO.CREATOR.API.getRecords({
+    ZOHO.CREATOR.API.getAllRecords({
       appName: APP,
       reportName: 'All_Supplier_Verify_Form_Report',
       criteria: '(SV_Quote_Form == '+quoteId+' && SV_Supplier_Entry_Form == '+suppId+')',
