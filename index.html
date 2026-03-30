@@ -313,6 +313,12 @@ function processRecords(){
   });
   document.getElementById('hdr-title').textContent = 'Material sourcing — '+(quoteRef||'Quote');
   document.getElementById('hdr-sub').textContent = quoteDesc||'';
+  // Debug: log all field keys so we can confirm field names
+  if(allRecords.length > 0){
+    console.log('FIELD KEYS:', Object.keys(allRecords[0]));
+    console.log('FIRST RECORD SAMPLE:', JSON.stringify(allRecords[0]));
+    setStatus('loaded '+allRecords.length+' recs | keys: '+Object.keys(allRecords[0]).join(',').substring(0,80));
+  }
 }
 
 function renderTable(){
@@ -342,7 +348,10 @@ function renderTable(){
 
     rows.forEach(function(rec){
       var isSourced = selectedId === rec.ID;
-      var canSource = rec.CAD_Item_Verification_Status && rec.CAD_Item_Verification_Status !== 'No Quote';
+      // Show Select button if row has a supplier name or any price — don't block on verification status
+      var hasSupplier = rec.CAD_Supplier_Name && rec.CAD_Supplier_Name !== '' && rec.CAD_Supplier_Name !== '—';
+      var hasPrice = rec.CAD_Price_Per_Lb && parseFloat(rec.CAD_Price_Per_Lb) > 0;
+      var canSource = hasSupplier || hasPrice;
       var isLow = minPrice && prices.length > 1 && parseFloat(rec.CAD_Price_Per_Lb) === minPrice;
 
       var togHtml = '';
@@ -396,7 +405,7 @@ function sourceAllAvailable(){
     if(selections[ln]) return;
     var rows = lineGroups[ln];
     var available = rows.filter(function(r){
-      return r.CAD_Item_Verification_Status && r.CAD_Item_Verification_Status !== 'No Quote';
+      return (r.CAD_Supplier_Name && r.CAD_Supplier_Name !== '') || (r.CAD_Price_Per_Lb && parseFloat(r.CAD_Price_Per_Lb) > 0);
     });
     if(available.length === 0) return;
     var withPrice = available.filter(function(r){ return parseFloat(r.CAD_Price_Per_Lb)>0; });
@@ -596,6 +605,11 @@ function parseUrlParams(url){
 }
 
 ZOHO.CREATOR.init().then(function(){
+  // Force override any Zoho iframe styles that wash out text
+  var forceStyle = document.createElement('style');
+  forceStyle.innerHTML = 'body,td,th,div,span,button,p{font-family:"DM Sans",sans-serif !important;} td{color:#1A1D23 !important;font-size:13px !important;} .desc-cell{color:#1A1D23 !important;font-size:13px !important;} .num-cell{color:#1A1D23 !important;font-size:13px !important;} .line-num{color:#5F94CE !important;} .line-hdr td{color:#1a3a6e !important;} .line-hdr-desc{color:#2e5f8a !important;}';
+  document.head.appendChild(forceStyle);
+
   setStatus('SDK ready');
 
   // Method 1 — Zoho query params
