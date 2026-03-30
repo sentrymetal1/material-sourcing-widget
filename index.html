@@ -540,19 +540,62 @@ function proceedToPO(){
   window.parent.postMessage({type: 'sourcing_complete', quote_id: quoteId}, '*');
 }
 
+function parseUrlParams(url){
+  try {
+    var search = url.indexOf('?') !== -1 ? url.split('?')[1] : '';
+    var params = {};
+    search.split('&').forEach(function(pair){
+      var parts = pair.split('=');
+      if(parts.length >= 2){
+        params[decodeURIComponent(parts[0])] = decodeURIComponent(parts.slice(1).join('='));
+      }
+    });
+    return params;
+  } catch(e){ return {}; }
+}
+
 ZOHO.CREATOR.init().then(function(){
   setStatus('SDK ready');
+
+  // Method 1 — Zoho query params (works when passed via zc-component params)
   try {
     var qp = ZOHO.CREATOR.UTIL.getQueryParams();
-    if(qp){
-      quoteId = qp.quote_id || null;
+    if(qp && qp.quote_id){
+      quoteId = qp.quote_id;
       quoteRef = qp.quote_reference_number || '';
       quoteDesc = qp.quote_description || '';
+      setStatus('params via SDK: '+quoteId);
     }
-  } catch(e){ setStatus('param err: '+e.message); }
+  } catch(e){ setStatus('SDK param err: '+e.message); }
+
+  // Method 2 — read from parent window URL
+  if(!quoteId){
+    try {
+      var parentParams = parseUrlParams(window.parent.location.href);
+      if(parentParams.quote_id){
+        quoteId = parentParams.quote_id;
+        quoteRef = parentParams.quote_reference_number || '';
+        quoteDesc = parentParams.quote_description || '';
+        setStatus('params via parent URL: '+quoteId);
+      }
+    } catch(e){ setStatus('parent URL err: '+e.message); }
+  }
+
+  // Method 3 — read from current window URL
+  if(!quoteId){
+    try {
+      var selfParams = parseUrlParams(window.location.href);
+      if(selfParams.quote_id){
+        quoteId = selfParams.quote_id;
+        quoteRef = selfParams.quote_reference_number || '';
+        quoteDesc = selfParams.quote_description || '';
+        setStatus('params via self URL: '+quoteId);
+      }
+    } catch(e){ setStatus('self URL err: '+e.message); }
+  }
 
   if(!quoteId){
-    showError('No quote ID provided. Please open this widget from the sourcing dashboard.');
+    showError('No quote ID found. Status: tried SDK params, parent URL, and self URL. Please ensure this widget is opened from the sourcing dashboard with a valid quote_id.');
     return;
   }
 
@@ -560,8 +603,35 @@ ZOHO.CREATOR.init().then(function(){
   loadRecords();
 
 }).catch(function(err){
-  setStatus('SDK err: '+JSON.stringify(err).substring(0,30));
-  showError('Widget SDK failed to initialize: '+JSON.stringify(err));
+  setStatus('SDK init failed, trying URL fallback...');
+
+  // SDK failed — still try URL params
+  try {
+    var parentParams = parseUrlParams(window.parent.location.href);
+    if(parentParams.quote_id){
+      quoteId = parentParams.quote_id;
+      quoteRef = parentParams.quote_reference_number || '';
+      quoteDesc = parentParams.quote_description || '';
+    }
+  } catch(e){}
+
+  if(!quoteId){
+    try {
+      var selfParams = parseUrlParams(window.location.href);
+      if(selfParams.quote_id){
+        quoteId = selfParams.quote_id;
+        quoteRef = selfParams.quote_reference_number || '';
+        quoteDesc = selfParams.quote_description || '';
+      }
+    } catch(e){}
+  }
+
+  if(quoteId){
+    setStatus('SDK failed but got quote_id from URL: '+quoteId);
+    loadRecords();
+  } else {
+    showError('Widget SDK failed to initialize and no quote ID found in URL: '+JSON.stringify(err));
+  }
 });
 </script>
 </body>
