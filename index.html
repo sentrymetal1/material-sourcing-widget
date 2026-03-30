@@ -252,23 +252,6 @@ function loadRecords(){
   }).then(function(resp){
     if(resp && resp.data && resp.data.length > 0){
       allRecords = resp.data;
-      // Show field debug panel on page - remove after field names confirmed
-      var rec0 = allRecords[0];
-      var keys = Object.keys(rec0);
-      var dbgHtml = '<div style="background:#1a1a2e;color:#00ff88;font-family:monospace;font-size:11px;padding:12px 16px;border-radius:8px;margin-bottom:14px;max-height:200px;overflow-y:auto;">';
-      dbgHtml += '<strong style="color:#fff;font-size:12px;">DEBUG — Field names from first record ('+allRecords.length+' total records):</strong><br><br>';
-      keys.forEach(function(k){
-        var v = rec0[k];
-        var vStr = (v && typeof v === 'object') ? JSON.stringify(v) : String(v||'');
-        dbgHtml += '<span style="color:#88ccff;">'+k+'</span>: <span style="color:#ffcc88;">'+vStr.substring(0,60)+'</span><br>';
-      });
-      dbgHtml += '</div>';
-      var wrap = document.getElementById('wrap');
-      var debugDiv = document.createElement('div');
-      debugDiv.id = 'field-debug';
-      debugDiv.innerHTML = dbgHtml;
-      wrap.insertBefore(debugDiv, wrap.firstChild);
-
       processRecords(); showMainPanel();
     } else {
       showError('No sourcing records found for this quote.');
@@ -278,12 +261,34 @@ function loadRecords(){
 
 function processRecords(){
   lineGroups={}; selections={}; supplierMap={};
+
+  // Deduplicate: for each line+supplier, keep only the record with the highest RFQ Sent ID (most recent round)
+  var dedupMap = {};
   allRecords.forEach(function(rec){
+    var ln = rec.CustRFQAccept_Line_Item;
+    var suppId = getSupplierId(rec) || 'unknown';
+    var key = String(ln) + '_' + String(suppId);
+    var existing = dedupMap[key];
+    if(!existing){
+      dedupMap[key] = rec;
+    } else {
+      // Keep record with larger RFQ Sent ID (more recent)
+      var existRFQ = getRFQSentId(existing);
+      var recRFQ = getRFQSentId(rec);
+      if(String(recRFQ) > String(existRFQ)) dedupMap[key] = rec;
+    }
+  });
+
+  // Build lineGroups from deduplicated records
+  Object.keys(dedupMap).forEach(function(key){
+    var rec = dedupMap[key];
     var ln = rec.CustRFQAccept_Line_Item;
     if(!lineGroups[ln]) lineGroups[ln]=[];
     lineGroups[ln].push(rec);
-    var suppName = rec.CAD_Supplier_Name || '';
-    var suppId = (rec.CAD_Supplier_LU && rec.CAD_Supplier_LU.ID) ? rec.CAD_Supplier_LU.ID : (rec.CAD_Supplier_LU || suppName);
+
+    // Build supplier map
+    var suppName = getSupplierName(rec);
+    var suppId = getSupplierId(rec) || suppName;
     if(suppName && suppId){
       if(!supplierMap[suppId]) supplierMap[suppId]={name:suppName, lines:[]};
       if(supplierMap[suppId].lines.indexOf(String(ln))===-1) supplierMap[suppId].lines.push(String(ln));
@@ -311,8 +316,7 @@ function filterBySupplier(suppId){
   s.lines.forEach(function(ln){
     var rows=lineGroups[ln]; if(!rows) return;
     var rec=rows.find(function(r){
-      var rId=(r.CAD_Supplier_LU&&r.CAD_Supplier_LU.ID)?r.CAD_Supplier_LU.ID:(r.CAD_Supplier_LU||r.CAD_Supplier_Name);
-      return String(rId)===String(suppId)||r.CAD_Supplier_Name===s.name;
+      return String(getSupplierId(r))===String(suppId)||getSupplierName(r)===s.name;
     });
     if(rec) selections[ln]=rec.ID;
   });
@@ -320,8 +324,51 @@ function filterBySupplier(suppId){
   renderTable(); updateStats();
 }
 
-function getLeadTime(rec){ return rec.CAD_Lead_Time||rec.Lead_Time||rec.CAD_Delivery_Days||rec.Delivery_Days||rec.CAD_Lead_Time_Days||rec.SV_Lead_Time||''; }
-function getItemStatus(rec){ return rec.CAD_Item_Verification_Status||rec.CAD_Verification_Status||rec.Item_Status||rec.CAD_Status||rec.SV_Status||''; }
+function getLeadTime(rec){ 
+  // CAD_RFQs_Sent_ID.Lead_Time_Drop_Down1 comes through as a nested field
+  if(rec['CAD_RFQs_Sent_ID.Lead_Time_Drop_Down1']) return rec['CAD_RFQs_Sent_ID.Lead_Time_Drop_Down1'];
+  if(rec.CAD_RFQs_Sent_ID && rec.CAD_RFQs_Sent_ID.Lead_Time_Drop_Down1) return rec.CAD_RFQs_Sent_ID.Lead_Time_Drop_Down1;
+  return rec.CAD_Lead_Time||rec.Lead_Time||''; 
+}
+function getItemStatus(rec){ 
+  if(rec['CAD_RFQs_Sent_ID.Item_Verification_Status']) return rec['CAD_RFQs_Sent_ID.Item_Verification_Status'];
+  if(rec.CAD_RFQs_Sent_ID && rec.CAD_RFQs_Sent_ID.Item_Verification_Status) return rec.CAD_RFQs_Sent_ID.Item_Verification_Status;
+  return rec.CAD_Item_Verification_Status||rec.CAD_Status||''; 
+}
+function getDesc(rec,fallback){ 
+  if(rec['CAD_RFQs_Sent_ID.Original_Full_Item_Description']) return rec['CAD_RFQs_Sent_ID.Original_Full_Item_Description'];
+  if(rec.CAD_RFQs_Sent_ID && rec.CAD_RFQs_Sent_ID.Original_Full_Item_Description) return rec.CAD_RFQs_Sent_ID.Original_Full_Item_Description;
+  return rec.CAD_Material_Description||rec.CAD_Full_Item_Description||rec.CAD_Item_Info||fallback||'—'; 
+}
+function getUnitPrice(rec){ 
+  if(rec['CAD_RFQs_Sent_ID.Unit_Price']) return rec['CAD_RFQs_Sent_ID.Unit_Price'];
+  if(rec.CAD_RFQs_Sent_ID && rec.CAD_RFQs_Sent_ID.Unit_Price) return rec.CAD_RFQs_Sent_ID.Unit_Price;
+  return rec.CAD_Unit_Price||null; 
+}
+function getTotalWt(rec){ 
+  if(rec['CAD_RFQs_Sent_ID.CalcWeight']) return rec['CAD_RFQs_Sent_ID.CalcWeight'];
+  if(rec.CAD_RFQs_Sent_ID && rec.CAD_RFQs_Sent_ID.CalcWeight) return rec.CAD_RFQs_Sent_ID.CalcWeight;
+  return rec.CAD_Calc_Weight||rec.CAD_Total_Weight||null; 
+}
+function getUnitWt(rec){ return rec.CAD_Unit_Weight||null; }
+function getQty(rec){ return rec.CAD_Quantity||null; }
+function getSupplierName(rec){ 
+  if(rec.CAD_Supplier_Name) return rec.CAD_Supplier_Name;
+  if(rec['CAD_Supplier_LU.Company_Name']) return rec['CAD_Supplier_LU.Company_Name'];
+  if(rec.CAD_Supplier_LU && rec.CAD_Supplier_LU.Company_Name) return rec.CAD_Supplier_LU.Company_Name;
+  return '';
+}
+function getSupplierId(rec){
+  if(rec.CAD_Supplier_LU && rec.CAD_Supplier_LU.ID) return rec.CAD_Supplier_LU.ID;
+  if(rec.CAD_Supplier_Name) return rec.CAD_Supplier_Name;
+  return '';
+}
+function getRFQSentId(rec){
+  // Get the RFQs_Sent record ID for deduplication
+  if(rec.CAD_RFQs_Sent_ID && rec.CAD_RFQs_Sent_ID.ID) return rec.CAD_RFQs_Sent_ID.ID;
+  if(rec['CAD_RFQs_Sent_ID.ID']) return rec['CAD_RFQs_Sent_ID.ID'];
+  return rec.CAD_RFQs_Sent_ID || '';
+}
 
 function renderTable(){
   var tb=document.getElementById('main-tbody');
@@ -332,8 +379,8 @@ function renderTable(){
   sortedLines.forEach(function(ln){
     var rows=lineGroups[ln];
     var selectedId=selections[ln];
-    var desc=rows[0].CAD_Item_Info||rows[0].CAD_Material_Description||'—';
-    var hasAnyQuote=rows.some(function(r){ return (r.CAD_Supplier_Name&&r.CAD_Supplier_Name!=='')||(r.CAD_Price_Per_Lb&&parseFloat(r.CAD_Price_Per_Lb)>0); });
+    var desc=getDesc(rows[0],'');
+    var hasAnyQuote=rows.some(function(r){ var sn=getSupplierName(r); return (sn!=='')||(r.CAD_Price_Per_Lb&&parseFloat(r.CAD_Price_Per_Lb)>0); });
     var allocBadge=selectedId?'<span class="badge badge-green" style="font-size:10px;">Sourced</span>':(!hasAnyQuote?'<span class="badge badge-amber" style="font-size:10px;">No quotes</span>':'');
 
     html+='<tr class="line-hdr"><td colspan="12">Line '+ln+' &nbsp;<span class="line-hdr-desc">'+desc+'</span>'+(allocBadge?'&nbsp;&nbsp;'+allocBadge:'')+'</td></tr>';
@@ -343,7 +390,8 @@ function renderTable(){
 
     rows.forEach(function(rec){
       var isSourced=selectedId===rec.ID;
-      var hasSupplier=rec.CAD_Supplier_Name&&rec.CAD_Supplier_Name!=='';
+      var suppName=getSupplierName(rec);
+      var hasSupplier=suppName!=='';
       var hasPrice=rec.CAD_Price_Per_Lb&&parseFloat(rec.CAD_Price_Per_Lb)>0;
       var canSource=hasSupplier||hasPrice;
       var isLow=minPrice&&prices.length>1&&parseFloat(rec.CAD_Price_Per_Lb)===minPrice;
@@ -361,17 +409,17 @@ function renderTable(){
       var leadHtml=leadTime?(leadDays?leadDays+' days':leadTime):'<span style="color:#c0c5d0;">—</span>';
 
       var priceHtml=fmtPl(rec.CAD_Price_Per_Lb)+(isLow&&prices.length>1?'<span class="low-star">★</span>':'');
-      var rowDesc=rec.CAD_Item_Info||rec.CAD_Material_Description||rec.Description||desc||'—';
+      var rowDesc=getDesc(rec,desc);
 
       html+='<tr class="sup-row'+(isSourced?' sourced':'')+(!canSource?' no-quote':'')+'">';
       html+='<td class="line-num">'+ln+'</td>';
       html+='<td class="desc-cell">'+rowDesc+'</td>';
-      html+='<td class="c num-cell">'+(rec.CAD_Quantity||'—')+'</td>';
-      html+='<td class="r num-cell">'+fmtLb(rec.CAD_Unit_Weight)+'</td>';
-      html+='<td class="r num-cell">'+fmtLb(rec.CAD_Calc_Weight)+'</td>';
-      html+='<td><span class="sup-tag'+(canSource?'':' nr')+'">'+(rec.CAD_Supplier_Name||'—')+'</span></td>';
+      html+='<td class="c num-cell">'+(getQty(rec)||'—')+'</td>';
+      html+='<td class="r num-cell">'+fmtLb(getUnitWt(rec))+'</td>';
+      html+='<td class="r num-cell">'+fmtLb(getTotalWt(rec))+'</td>';
+      html+='<td><span class="sup-tag'+(canSource?'':' nr')+'">'+( suppName||'—')+'</span></td>';
       html+='<td class="r num-cell">'+priceHtml+'</td>';
-      html+='<td class="r num-cell">'+fmt(rec.CAD_Unit_Price)+'</td>';
+      html+='<td class="r num-cell">'+fmt(getUnitPrice(rec))+'</td>';
       html+='<td class="r num-cell'+(isSourced?' sourced-price':'')+'">'+fmt(rec.CAD_Total_Price)+'</td>';
       html+='<td class="'+leadClass+'">'+leadHtml+'</td>';
       html+='<td>'+statusHtml+'</td>';
@@ -391,7 +439,7 @@ function sourceAllAvailable(){
   Object.keys(lineGroups).forEach(function(ln){
     if(selections[ln]) return;
     var rows=lineGroups[ln];
-    var available=rows.filter(function(r){ return (r.CAD_Supplier_Name&&r.CAD_Supplier_Name!=='')||(r.CAD_Price_Per_Lb&&parseFloat(r.CAD_Price_Per_Lb)>0); });
+    var available=rows.filter(function(r){ var sn=getSupplierName(r); return (sn!=='')||(r.CAD_Price_Per_Lb&&parseFloat(r.CAD_Price_Per_Lb)>0); });
     if(available.length===0) return;
     var withPrice=available.filter(function(r){return parseFloat(r.CAD_Price_Per_Lb)>0;});
     var pick=withPrice.length>0?withPrice.reduce(function(a,b){return parseFloat(a.CAD_Price_Per_Lb)<parseFloat(b.CAD_Price_Per_Lb)?a:b;}):available[0];
@@ -413,7 +461,7 @@ function updateStats(){
     if(rec){
       totalWt+=parseFloat(rec.CAD_Calc_Weight)||0;
       totalAmt+=parseFloat(rec.CAD_Total_Price)||0;
-      var suppName=rec.CAD_Supplier_Name||'Unknown';
+      var suppName=getSupplierName(rec)||'Unknown';
       selectedSuppliers[suppName]=true;
     }
   });
@@ -479,8 +527,8 @@ function updateSVFTotals(){
   var supplierTotals={};
   Object.keys(selections).forEach(function(ln){
     var rec=allRecords.find(function(r){return r.ID===selections[ln];}); if(!rec) return;
-    var suppId=(rec.CAD_Supplier_LU&&rec.CAD_Supplier_LU.ID)?rec.CAD_Supplier_LU.ID:rec.CAD_Supplier_LU;
-    var suppName=rec.CAD_Supplier_Name||suppId; if(!suppId) return;
+    var suppId=getSupplierId(rec);
+    var suppName=getSupplierName(rec)||suppId; if(!suppId) return;
     if(!supplierTotals[suppId]) supplierTotals[suppId]={name:suppName,total:0,wt:0,items:0};
     supplierTotals[suppId].total+=parseFloat(rec.CAD_Total_Price)||0;
     supplierTotals[suppId].wt+=parseFloat(rec.CAD_Calc_Weight)||0;
