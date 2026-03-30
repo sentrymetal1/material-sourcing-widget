@@ -108,6 +108,16 @@ td.lead-cell.slow{color:#854F0B !important;}
 .supplier-summary-name{font-size:13px;font-weight:500;color:#1A1D23 !important;}
 .supplier-summary-amt{font-size:13px;font-weight:600;font-family:'JetBrains Mono',monospace;color:#185FA5 !important;}
 .success-actions{display:flex;gap:10px;justify-content:flex-end;}
+
+.intro-block{background:#deeaf7;border-left:4px solid #5F94CE;border-radius:0 6px 6px 0;padding:10px 14px;margin-bottom:14px;font-size:12px;color:#1A1D23 !important;line-height:1.6;}
+.intro-block strong{color:#2e5f8a !important;}
+.intro-block em{font-style:normal;font-weight:600;color:#2e5f8a !important;}
+
+.ref-note{background:#f8f9fc;border:1px solid #E1E4EA;border-radius:6px;padding:9px 14px;margin-top:10px;font-size:12px;color:#5F5E5A !important;line-height:1.5;}
+.ref-note strong{color:#1A1D23 !important;}
+
+.disclaimer-block{border-top:1px solid #E1E4EA;margin-top:10px;padding-top:10px;font-size:11px;color:#9BA3B0 !important;line-height:1.6;}
+.disclaimer-block strong{color:#6B6F7A !important;}
 </style>
 </head>
 <body>
@@ -123,6 +133,10 @@ td.lead-cell.slow{color:#854F0B !important;}
         <p id="hdr-sub"></p>
       </div>
       <span class="badge badge-blue" id="hdr-status">Sourcing In Progress</span>
+    </div>
+
+    <div class="intro-block">
+      <strong>How to use this tool:</strong> Review the supplier quotes for each line item below. Select the supplier you want to source each material from using the <em>Select</em> button. You may source different items from different suppliers, but be aware this may affect package pricing — see the warning that appears when multiple suppliers are chosen. Use <em>Source all available</em> to auto-select the lowest price per item, or use the supplier dropdown to select all items from a single supplier at once. When your selections are final, click <em>Confirm sourcing &amp; save</em> to lock in your choices and update the quote.
     </div>
 
     <div class="stats-row">
@@ -189,6 +203,14 @@ td.lead-cell.slow{color:#854F0B !important;}
         </div>
         <button class="btn btn-success" id="confirm-btn2" onclick="confirmSourcing()" disabled>Confirm sourcing &amp; save</button>
       </div>
+    </div>
+
+    <div class="ref-note">
+      Use the Allocation Totals below to verify weight and dollar amounts against the project BOM. The <strong>Total Amount Allocated</strong> reflects your current selections and should be used for project quoting and purchase order generation.
+    </div>
+
+    <div class="disclaimer-block">
+      <strong>Disclaimer:</strong> Material Compass facilitates the connection between manufacturers and suppliers to support informed material sourcing decisions. While every effort is made to ensure accuracy of quoted weights, quantities, and pricing, Material Compass does not guarantee the correctness of supplier-submitted data. It is the responsibility of the manufacturer to verify all quantities, weights, and pricing prior to issuing purchase orders. Supplier quotes presented here are not binding contracts — final pricing is subject to confirmation by the supplier at time of order. Material Compass is not liable for any discrepancies that arise between quoted and actual values at the time of transaction.
     </div>
   </div>
 
@@ -459,7 +481,7 @@ function updateStats(){
   Object.keys(selections).forEach(function(ln){
     var rec=allRecords.find(function(r){return r.ID===selections[ln];});
     if(rec){
-      totalWt+=parseFloat(rec.CAD_Calc_Weight)||0;
+      totalWt+=parseFloat(getTotalWt(rec))||0;
       totalAmt+=parseFloat(rec.CAD_Total_Price)||0;
       var suppName=getSupplierName(rec)||'Unknown';
       selectedSuppliers[suppName]=true;
@@ -531,7 +553,7 @@ function updateSVFTotals(){
     var suppName=getSupplierName(rec)||suppId; if(!suppId) return;
     if(!supplierTotals[suppId]) supplierTotals[suppId]={name:suppName,total:0,wt:0,items:0};
     supplierTotals[suppId].total+=parseFloat(rec.CAD_Total_Price)||0;
-    supplierTotals[suppId].wt+=parseFloat(rec.CAD_Calc_Weight)||0;
+    supplierTotals[suppId].wt+=parseFloat(getTotalWt(rec))||0;
     supplierTotals[suppId].items++;
   });
   var suppKeys=Object.keys(supplierTotals); var sIdx=0;
@@ -563,7 +585,7 @@ function onSaveComplete(supplierTotals){
   var totalSourced=Object.keys(selections).length, totalWt=0, totalAmt=0;
   Object.keys(selections).forEach(function(ln){
     var rec=allRecords.find(function(r){return r.ID===selections[ln];});
-    if(rec){ totalWt+=parseFloat(rec.CAD_Calc_Weight)||0; totalAmt+=parseFloat(rec.CAD_Total_Price)||0; }
+    if(rec){ totalWt+=parseFloat(getTotalWt(rec))||0; totalAmt+=parseFloat(rec.CAD_Total_Price)||0; }
   });
   document.getElementById('sum-items').textContent=totalSourced;
   document.getElementById('sum-wt').textContent=fmtLb(totalWt);
