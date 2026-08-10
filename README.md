@@ -13,7 +13,7 @@ A hosted Zoho Creator widget that replaces the native `Customer_New_RFQ_Acceptan
 4. MFG clicks Yes/No per supplier row — no refresh on each click
 5. On "Confirm sourcing & save":
    - Sets `PREFER = YES` on selected rows, `PREFER = NO` on all others for that line
-   - Updates `Quote_Form.Status` → `Sourcing Complete`
+   - Updates `Quote_Form.Status` → `Purchase Order Pending`
    - Updates `Supplier_Verify_Form.Allocation_Amount` and `Allocation_Percentage` per supplier
 6. Shows a success summary with sourced items, weight, dollar total by supplier
 7. Offers "Review & modify sourcing" or "Proceed to purchase order" buttons
@@ -103,7 +103,7 @@ The status bar (bottom right corner of widget) shows which method succeeded.
 ### Quote_Form (report: All_Quotes)
 | Field link name | Purpose |
 |---|---|
-| `Status` | Updated to `Sourcing Complete` on confirm |
+| `Status` | Updated to `Purchase Order Pending` on confirm |
 
 ### Supplier_Verify_Form (report: All_Supplier_Verify_Form_Report)
 | Field link name | Purpose |
@@ -133,12 +133,37 @@ All fields listed above.
 
 ## Status flow
 
-| Stage | Quote_Form.Status |
-|---|---|
-| RFQ sent to suppliers | Open - Quoted |
-| MFG closes out quote process | Sourcing In Progress |
-| MFG confirms sourcing | **Sourcing Complete** ← widget sets this |
-| MFG creates PO | Purchase Order Pending |
+Values below are the ACTUAL `Quote_Form.Status` choice list. Anything not on that list is
+silently rejected by Zoho — see the v1.1 note under Changelog.
+
+| Stage | Quote_Form.Status | Set by |
+|---|---|---|
+| Quote built, not sent | Open - Not Submitted | create |
+| RFQ sent to suppliers | Submitted - Waiting Responses | Execute Matching and Send Emails |
+| Past due, no responses | Open - Past Due Date | aging |
+| Suppliers responded | Sourcing In Progress | supplier response write-back |
+| MFG closes out quote process | Closed - Allocation Process | MFG_Pending_Purchase_Order success workflow |
+| MFG confirms sourcing | **Purchase Order Pending** | ← widget sets this |
+| PO issued / done | Closed - Completed | PO step |
+| Nothing / partial fill | Closed - Not Filled / Closed - Partially Filled | close-out outcome |
+| Revised or killed | Quote Revised / Cancelled | revise / cancel |
+
+Dashboard tabs read this field as explicit status lists (not prefix or exclusion matching), so
+`Closed - Allocation Process` belongs to COMPARING despite its name. If you change what the widget
+writes here, update the `Material_Sourcing_Dashboard` KPI snippet and the four tab report views too.
+
+## Changelog
+
+**v1.1 (2026-08-09)** — `updateQuoteStatus()` wrote `Status: 'Sourcing Complete'`, which is **not a
+value on the `Status` choice list**, so Zoho rejected every write. The `.catch()` swallowed the
+failure and the success panel still reported "Quote status updated to Sourcing Complete" — so the
+save looked fine while the status never moved, and the dashboard's PENDING PO tab read 0 forever.
+Now writes `Purchase Order Pending` and surfaces failures (including HTTP-200-with-error-code
+responses, which `.then()` alone cannot detect). Added `BUILD_TAG`, shown in the status bar, so a
+stale GitHub Pages cache can be told apart from a failed fix.
+
+**Known issue, not fixed in v1.1:** the per-row `PREFER` updates in `confirmSourcing()` also
+`.catch()` and continue, so a rejected row is invisible and still counts toward the sourced total.
 
 ---
 

@@ -239,11 +239,12 @@ td.lead-cell.slow{color:#854F0B !important;}
 </div>
 
 <script>
+var BUILD_TAG = 'v1.1 2026-08-09';
 var APP = 'type-formsheet-2-18-21';
 var quoteId = null, quoteRef = '', quoteDesc = '';
 var allRecords = [], lineGroups = {}, selections = {}, supplierMap = {};
 
-function setStatus(msg){ var el=document.getElementById('status-bar'); if(el) el.textContent=msg; }
+function setStatus(msg){ var el=document.getElementById('status-bar'); if(el) el.textContent=BUILD_TAG+' | '+msg; }
 
 function fmt(n){ if(n==null||n===''||isNaN(parseFloat(n))) return '—'; return '$'+parseFloat(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
 function fmtLb(n){ if(n==null||n===''||isNaN(parseFloat(n))) return '—'; return parseFloat(n).toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:2})+' lbs'; }
@@ -541,8 +542,16 @@ function confirmSourcing(){
 function updateQuoteStatus(){
   ZOHO.CREATOR.API.updateRecord({
     appName:APP, reportName:'All_Quotes', id:quoteId,
-    data:{data:{Status:'Sourcing Complete'}}
-  }).then(function(){updateSVFTotals();}).catch(function(){updateSVFTotals();});
+    data:{data:{Status:'Purchase Order Pending'}}
+  }).then(function(resp){
+    // Zoho returns HTTP 200 with an error code in the body (quota, perms, bad choice
+    // value), so .then() alone is not proof the write landed. 3000 == success.
+    if(resp && resp.code && resp.code !== 3000){ setStatus('status write FAILED code '+resp.code); }
+    updateSVFTotals();
+  }).catch(function(e){
+    setStatus('status write FAILED: '+(e && e.message ? e.message : 'unknown'));
+    updateSVFTotals();
+  });
 }
 
 function updateSVFTotals(){
@@ -590,7 +599,7 @@ function onSaveComplete(supplierTotals){
   document.getElementById('sum-items').textContent=totalSourced;
   document.getElementById('sum-wt').textContent=fmtLb(totalWt);
   document.getElementById('sum-amt').textContent=fmt(totalAmt);
-  document.getElementById('success-sub').textContent=totalSourced+' item(s) sourced across '+Object.keys(supplierTotals).length+' supplier(s). Quote status updated to Sourcing Complete.';
+  document.getElementById('success-sub').textContent=totalSourced+' item(s) sourced across '+Object.keys(supplierTotals).length+' supplier(s). Quote status updated to Purchase Order Pending.';
   var suppRows='';
   Object.keys(supplierTotals).forEach(function(suppId){
     var s=supplierTotals[suppId];
