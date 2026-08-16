@@ -239,7 +239,7 @@ td.lead-cell.slow{color:#854F0B !important;}
 </div>
 
 <script>
-var BUILD_TAG = 'v1.2 2026-08-16';
+var BUILD_TAG = 'v1.3 2026-08-16';
 var APP = 'type-formsheet-2-18-21';
 var quoteId = null, quoteRef = '', quoteDesc = '';
 var allRecords = [], lineGroups = {}, selections = {}, supplierMap = {}, lineNums = {};
@@ -321,6 +321,15 @@ function processRecords(){
       if(supplierMap[suppId].lines.indexOf(String(ln))===-1) supplierMap[suppId].lines.push(String(ln));
     }
   });
+  // Pre-select whatever was sourced previously so reopening shows the CURRENT state.
+  // Without this the screen comes up blank on an already-sourced quote, and confirming
+  // again writes PREFER=NO to every row — silently wiping the earlier sourcing.
+  Object.keys(lineGroups).forEach(function(ln){
+    lineGroups[ln].forEach(function(rec){
+      if(String(rec.PREFER||'').toUpperCase()==='YES') selections[ln]=rec.ID;
+    });
+  });
+
   document.getElementById('hdr-title').textContent='Material sourcing — '+(quoteRef||'Quote');
   document.getElementById('hdr-sub').textContent=quoteDesc||'';
 
