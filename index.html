@@ -239,10 +239,10 @@ td.lead-cell.slow{color:#854F0B !important;}
 </div>
 
 <script>
-var BUILD_TAG = 'v1.1 2026-08-09';
+var BUILD_TAG = 'v1.2 2026-08-16';
 var APP = 'type-formsheet-2-18-21';
 var quoteId = null, quoteRef = '', quoteDesc = '';
-var allRecords = [], lineGroups = {}, selections = {}, supplierMap = {};
+var allRecords = [], lineGroups = {}, selections = {}, supplierMap = {}, lineNums = {};
 
 function setStatus(msg){ var el=document.getElementById('status-bar'); if(el) el.textContent=BUILD_TAG+' | '+msg; }
 
@@ -283,14 +283,16 @@ function loadRecords(){
 }
 
 function processRecords(){
-  lineGroups={}; selections={}; supplierMap={};
+  lineGroups={}; selections={}; supplierMap={}; lineNums={};
 
   // Deduplicate: for each line+supplier, keep only the record with the highest RFQ Sent ID (most recent round)
+  // Keyed on getLineKey (Jeffs Calcs ID), NOT the line number — Line_Item is not unique, and two
+  // different lines sharing a number + supplier used to collide here and silently drop one.
   var dedupMap = {};
   allRecords.forEach(function(rec){
-    var ln = rec.CustRFQAccept_Line_Item;
+    var ln = getLineKey(rec);
     var suppId = getSupplierId(rec) || 'unknown';
-    var key = String(ln) + '_' + String(suppId);
+    var key = ln + '_' + String(suppId);
     var existing = dedupMap[key];
     if(!existing){
       dedupMap[key] = rec;
@@ -305,9 +307,11 @@ function processRecords(){
   // Build lineGroups from deduplicated records
   Object.keys(dedupMap).forEach(function(key){
     var rec = dedupMap[key];
-    var ln = rec.CustRFQAccept_Line_Item;
+    var ln = getLineKey(rec);
     if(!lineGroups[ln]) lineGroups[ln]=[];
     lineGroups[ln].push(rec);
+    // Line_Item is kept for DISPLAY and sort order only — never as an identity key.
+    if(lineNums[ln]===undefined) lineNums[ln]=parseInt(rec.CustRFQAccept_Line_Item)||0;
 
     // Build supplier map
     var suppName = getSupplierName(rec);
@@ -330,7 +334,11 @@ function processRecords(){
     opt.textContent=s.name+' ('+s.lines.length+' line'+(s.lines.length>1?'s':'')+')';
     sel.appendChild(opt);
   });
-  setStatus('loaded '+allRecords.length+' recs | '+Object.keys(supplierMap).length+' suppliers');
+  // Surface how many rows had no Jeffs Calcs link and fell back to the (non-unique) line number.
+  // If this reads anything other than 0 on a current quote, CAD_Jeffs_Calcs_ID is not coming back
+  // from the report — check it is a configured column — and lines can still collide.
+  var noKey = allRecords.filter(function(r){ return getLineKey(r).charAt(0)==='L'; }).length;
+  setStatus('loaded '+allRecords.length+' recs | '+Object.keys(supplierMap).length+' suppliers | '+Object.keys(lineGroups).length+' lines'+(noKey>0?' | ⚠ '+noKey+' rows missing Jeffs Calcs ID':''));
 }
 
 function filterBySupplier(suppId){
@@ -373,6 +381,18 @@ function getTotalWt(rec){
   if(rec.CAD_RFQs_Sent_ID && rec.CAD_RFQs_Sent_ID.CalcWeight) return rec.CAD_RFQs_Sent_ID.CalcWeight;
   return rec.CAD_Calc_Weight||rec.CAD_Total_Weight||null; 
 }
+// Identity of a MATERIAL LINE. Must NOT be CustRFQAccept_Line_Item — that is not unique
+// (MMQ-10000: 31 rows, 30 distinct numbers, two rows numbered 31, number 8 skipped), and
+// keying on it silently dropped a real line from sourcing. CAD_Jeffs_Calcs_ID points at the
+// structural source line and IS unique per line. Falls back to the line number only for
+// legacy rows written before that link existed.
+function getLineKey(rec){
+  var j = rec.CAD_Jeffs_Calcs_ID;
+  if(j && j.ID) return 'J'+j.ID;
+  if(rec['CAD_Jeffs_Calcs_ID.ID']) return 'J'+rec['CAD_Jeffs_Calcs_ID.ID'];
+  if(j) return 'J'+j;
+  return 'L'+rec.CustRFQAccept_Line_Item;
+}
 function getUnitWt(rec){ return rec.CAD_Unit_Weight||null; }
 function getQty(rec){ return rec.CAD_Quantity||null; }
 function getSupplierName(rec){ 
@@ -396,7 +416,7 @@ function getRFQSentId(rec){
 function renderTable(){
   var tb=document.getElementById('main-tbody');
   var html='';
-  var sortedLines=Object.keys(lineGroups).sort(function(a,b){return parseInt(a)-parseInt(b);});
+  var sortedLines=Object.keys(lineGroups).sort(function(a,b){return (lineNums[a]||0)-(lineNums[b]||0);});
   document.getElementById('sel-total').textContent=sortedLines.length;
 
   sortedLines.forEach(function(ln){
@@ -406,7 +426,7 @@ function renderTable(){
     var hasAnyQuote=rows.some(function(r){ var sn=getSupplierName(r); return (sn!=='')||(r.CAD_Price_Per_Lb&&parseFloat(r.CAD_Price_Per_Lb)>0); });
     var allocBadge=selectedId?'<span class="badge badge-green" style="font-size:10px;">Sourced</span>':(!hasAnyQuote?'<span class="badge badge-amber" style="font-size:10px;">No quotes</span>':'');
 
-    html+='<tr class="line-hdr"><td colspan="12">Line '+ln+' &nbsp;<span class="line-hdr-desc">'+desc+'</span>'+(allocBadge?'&nbsp;&nbsp;'+allocBadge:'')+'</td></tr>';
+    html+='<tr class="line-hdr"><td colspan="12">Line '+(lineNums[ln]||'?')+' &nbsp;<span class="line-hdr-desc">'+desc+'</span>'+(allocBadge?'&nbsp;&nbsp;'+allocBadge:'')+'</td></tr>';
 
     var prices=rows.filter(function(r){return r.CAD_Price_Per_Lb&&parseFloat(r.CAD_Price_Per_Lb)>0;}).map(function(r){return parseFloat(r.CAD_Price_Per_Lb);});
     var minPrice=prices.length>0?Math.min.apply(null,prices):null;
@@ -420,7 +440,7 @@ function renderTable(){
       var isLow=minPrice&&prices.length>1&&parseFloat(rec.CAD_Price_Per_Lb)===minPrice;
 
       var togHtml=canSource
-        ?(isSourced?'<button class="sel-btn selected" onclick="setSelection('+ln+',\''+rec.ID+'\',false)">&#10003; Selected</button>':'<button class="sel-btn unselected" onclick="setSelection('+ln+',\''+rec.ID+'\',true)">Select</button>')
+        ?(isSourced?'<button class="sel-btn selected" onclick="setSelection(\''+ln+'\',\''+rec.ID+'\',false)">&#10003; Selected</button>':'<button class="sel-btn unselected" onclick="setSelection(\''+ln+'\',\''+rec.ID+'\',true)">Select</button>')
         :'<span class="badge badge-gray" style="font-size:10px;">No quote</span>';
 
       var itemStatus=getItemStatus(rec);
@@ -523,7 +543,7 @@ function confirmSourcing(){
 
   var updates=[];
   allRecords.forEach(function(rec){
-    var ln=rec.CustRFQAccept_Line_Item;
+    var ln=getLineKey(rec);
     updates.push({id:rec.ID, prefer:(selections[ln]===rec.ID)?'YES':'NO'});
   });
 
