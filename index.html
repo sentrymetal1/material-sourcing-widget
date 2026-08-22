@@ -239,6 +239,7 @@ td.lead-cell.slow{color:#854F0B !important;}
       <div class="summary-card"><div class="summary-lbl">Total weight</div><div class="summary-val" id="sum-wt">—</div></div>
       <div class="summary-card"><div class="summary-lbl">Total amount</div><div class="summary-val" id="sum-amt">—</div></div>
     </div>
+    <div id="save-warnings" style="display:none;background:#FFF8E1;border:1px solid #F5C842;border-radius:8px;padding:12px 16px;margin-bottom:10px;font-size:12px;color:#5A3A00;"></div>
     <div class="supplier-summary" id="supplier-summary-wrap">
       <div class="supplier-summary-header">Sourced by supplier</div>
       <div id="supplier-summary-rows"></div>
@@ -251,7 +252,7 @@ td.lead-cell.slow{color:#854F0B !important;}
 </div>
 
 <script>
-var BUILD_TAG = 'v1.5 2026-08-22';
+var BUILD_TAG = 'v1.6 2026-08-22';
 var APP = 'type-formsheet-2-18-21';
 var quoteId = null, quoteRef = '', quoteDesc = '';
 // lineSort is separate from lineNums because fittings restart their numbering at 1
@@ -634,6 +635,12 @@ function confirmSourcing(){
   nextUpdate();
 }
 
+// Writes that fail here used to vanish: the status bar is easy to miss and the
+// success screen reports numbers it computed locally, so a save could report
+// "$15,843.88 sourced" with nothing of the sort written. Anything that fails is
+// now collected and shown on the success screen itself.
+var saveWarnings = [];
+function warnSave(msg){ saveWarnings.push(msg); setStatus(msg); }
 function updateQuoteStatus(){
   ZOHO.CREATOR.API.updateRecord({
     appName:APP, reportName:'All_Quotes', id:quoteId,
@@ -641,10 +648,13 @@ function updateQuoteStatus(){
   }).then(function(resp){
     // Zoho returns HTTP 200 with an error code in the body (quota, perms, bad choice
     // value), so .then() alone is not proof the write landed. 3000 == success.
-    if(resp && resp.code && resp.code !== 3000){ setStatus('status write FAILED code '+resp.code); }
+    // It is ALSO not sufficient: a Quote_Form validation that re-stamps Status
+    // returns 3000 and discards the value. That validation is guarded now, but the
+    // only trustworthy check is reading the record back.
+    if(resp && resp.code && resp.code !== 3000){ warnSave('Quote status not updated (code '+resp.code+')'); }
     updateSVFTotals();
   }).catch(function(e){
-    setStatus('status write FAILED: '+(e && e.message ? e.message : 'unknown'));
+    warnSave('Quote status not updated: '+(e && e.message ? e.message : 'unknown error'));
     updateSVFTotals();
   });
 }
@@ -673,19 +683,46 @@ function updateSVFTotals(){
         var svf=resp.data[0];
         var allocAmt=supplierTotals[suppId].total;
         var pct=Math.round((allocAmt/(parseFloat(svf.Total_Amount_Currency)||1))*100);
+        // Quote_Expiration_Date/_Timestamp came from the report's ALLOCATE action,
+        // which this widget replaced without carrying them over — so since then no
+        // sourcing selection has recorded how long its price is good for. Stamped
+        // per selected line from the supplier's own Valid_Until_Date.
+        var validUntil = svf.Valid_Until_Date || '';
+        stampExpiry(suppId, validUntil);
         ZOHO.CREATOR.API.updateRecord({
           appName:APP, reportName:'All_Supplier_Verify_Form_Report', id:svf.ID,
           data:{data:{Allocation_Amount:allocAmt,Allocation_Percentage:pct}}
-        }).then(function(){nextSupplier();}).catch(function(){nextSupplier();});
-      } else { nextSupplier(); }
-    }).catch(function(){nextSupplier();});
+        }).then(function(r){
+          if(r && r.code && r.code !== 3000) warnSave('Allocation not written for '+supplierTotals[suppId].name+' (code '+r.code+')');
+          nextSupplier();
+        }).catch(function(e){
+          warnSave('Allocation not written for '+supplierTotals[suppId].name);
+          nextSupplier();
+        });
+      } else { warnSave('No Supplier Verify record found for '+supplierTotals[suppId].name+' — allocation not written'); nextSupplier(); }
+    }).catch(function(){ warnSave('Could not read Supplier Verify record for '+supplierTotals[suppId].name); nextSupplier(); });
   }
   nextSupplier();
 }
 
+// Stamp the price's shelf life onto every CAD row sourced from this supplier.
+// Fire-and-forget: a missing expiry must not block or fail the sourcing save,
+// but it is reported like any other failed write.
+function stampExpiry(suppId, validUntil){
+  if(!validUntil) return;
+  Object.keys(selections).forEach(function(ln){
+    var rec=allRecords.find(function(r){return r.ID===selections[ln];});
+    if(!rec || getSupplierId(rec)!==suppId) return;
+    ZOHO.CREATOR.API.updateRecord({
+      appName:APP, reportName:'Customer_New_RFQ_Acceptance_Detail_Report', id:rec.ID,
+      data:{data:{Quote_Expiration_Date:validUntil, Quote_Expiration_Timestamp:validUntil}}
+    }).catch(function(){ warnSave('Quote expiry not stamped on one or more lines'); });
+  });
+}
+
 function onSaveComplete(supplierTotals){
   document.getElementById('saving-overlay').classList.remove('show');
-  setStatus('save complete');
+  setStatus(saveWarnings.length?('save complete, '+saveWarnings.length+' warning(s)'):'save complete');
   var totalSourced=Object.keys(selections).length, totalWt=0, totalAmt=0;
   Object.keys(selections).forEach(function(ln){
     var rec=allRecords.find(function(r){return r.ID===selections[ln];});
@@ -694,7 +731,19 @@ function onSaveComplete(supplierTotals){
   document.getElementById('sum-items').textContent=totalSourced;
   document.getElementById('sum-wt').textContent=fmtLb(totalWt);
   document.getElementById('sum-amt').textContent=fmt(totalAmt);
-  document.getElementById('success-sub').textContent=totalSourced+' item(s) sourced across '+Object.keys(supplierTotals).length+' supplier(s). Quote status updated to Purchase Order Pending.';
+  // Only claim the status moved when nothing warned about it — the old copy said so
+  // unconditionally, which is how a quote sat in the wrong dashboard tab while this
+  // screen reported a clean save.
+  var statusFailed=saveWarnings.some(function(w){return w.indexOf('Quote status')===0;});
+  document.getElementById('success-sub').textContent=totalSourced+' item(s) sourced across '+Object.keys(supplierTotals).length+' supplier(s).'
+    +(statusFailed?' Quote status was NOT updated — see warnings below.':' Quote status updated to Purchase Order Pending.');
+  var warnEl=document.getElementById('save-warnings');
+  if(warnEl){
+    warnEl.innerHTML = saveWarnings.length
+      ? '<strong>Some writes did not land:</strong><ul style="margin:6px 0 0 18px;padding:0;">'+saveWarnings.map(function(w){return '<li>'+w+'</li>';}).join('')+'</ul>'
+      : '';
+    warnEl.style.display = saveWarnings.length ? 'block' : 'none';
+  }
   var suppRows='';
   Object.keys(supplierTotals).forEach(function(suppId){
     var s=supplierTotals[suppId];
