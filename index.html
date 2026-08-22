@@ -242,7 +242,11 @@ td.lead-cell.slow{color:#854F0B !important;}
 var BUILD_TAG = 'v1.3 2026-08-16';
 var APP = 'type-formsheet-2-18-21';
 var quoteId = null, quoteRef = '', quoteDesc = '';
-var allRecords = [], lineGroups = {}, selections = {}, supplierMap = {}, lineNums = {};
+// lineSort is separate from lineNums because fittings restart their numbering at 1
+// (Line_Item_Fitting is its own sequence), so sorting on the displayed number alone
+// interleaves fitting line 1 with structural line 1. Display uses lineNums, order
+// uses lineSort, which pushes fittings past every structural line.
+var allRecords = [], lineGroups = {}, selections = {}, supplierMap = {}, lineNums = {}, lineSort = {};
 
 function setStatus(msg){ var el=document.getElementById('status-bar'); if(el) el.textContent=BUILD_TAG+' | '+msg; }
 
@@ -283,7 +287,7 @@ function loadRecords(){
 }
 
 function processRecords(){
-  lineGroups={}; selections={}; supplierMap={}; lineNums={};
+  lineGroups={}; selections={}; supplierMap={}; lineNums={}; lineSort={};
 
   // Deduplicate: for each line+supplier, keep only the record with the highest RFQ Sent ID (most recent round)
   // Keyed on getLineKey (Jeffs Calcs ID), NOT the line number — Line_Item is not unique, and two
@@ -312,6 +316,7 @@ function processRecords(){
     lineGroups[ln].push(rec);
     // Line_Item is kept for DISPLAY and sort order only — never as an identity key.
     if(lineNums[ln]===undefined) lineNums[ln]=parseInt(rec.CustRFQAccept_Line_Item)||0;
+    if(lineSort[ln]===undefined) lineSort[ln]=(isFitting(rec)?100000:0)+(parseInt(rec.CustRFQAccept_Line_Item)||0);
 
     // Build supplier map
     var suppName = getSupplierName(rec);
@@ -395,7 +400,30 @@ function getTotalWt(rec){
 // keying on it silently dropped a real line from sourcing. CAD_Jeffs_Calcs_ID points at the
 // structural source line and IS unique per line. Falls back to the line number only for
 // legacy rows written before that link existed.
+// A fitting's link to its RFQs_Sent_Fittings BRIDGE row — one per supplier, so this
+// is the fitting analogue of CAD_RFQs_Sent_ID (dedup tiebreaker), NOT a line identity.
+// Empty lookups come back from Creator as null, '', or {} depending on the field, so
+// the object branch is checked first: an empty {} must never stringify into a key.
+function fittingId(rec){
+  var f = rec.CAD_RFQs_Sent_Fittings;
+  if(f && typeof f === 'object') return f.ID ? String(f.ID) : '';
+  if(rec['CAD_RFQs_Sent_Fittings.ID']) return String(rec['CAD_RFQs_Sent_Fittings.ID']);
+  return f ? String(f) : '';
+}
+// CAD_Item_Type is the intent; the bridge link is the fallback for any row written
+// before the type field existed. Either one alone is enough to call it a fitting.
+function isFitting(rec){ return rec.CAD_Item_Type==='Fitting' || fittingId(rec)!==''; }
 function getLineKey(rec){
+  // Fittings first: they have no Jeffs Calcs record, so without this every fitting
+  // falls through to the 'L'+line-number fallback — colliding with each other and
+  // tripping the "missing Jeffs Calcs ID" alarm on every row.
+  //
+  // Keyed on the DEMAND line (Fittings_Quote_Subform), not the bridge row. The
+  // demand line is shared by every supplier who quoted that fitting, which is what
+  // makes them one comparable line; the bridge row is per-supplier, and keying on
+  // it would split one fitting into N single-supplier "lines" with nothing to
+  // compare — the same class of bug that keying on Line_Item caused for structural.
+  if(rec.CAD_Fitting_Demand_ID) return 'F'+rec.CAD_Fitting_Demand_ID;
   var j = rec.CAD_Jeffs_Calcs_ID;
   if(j && j.ID) return 'J'+j.ID;
   if(rec['CAD_Jeffs_Calcs_ID.ID']) return 'J'+rec['CAD_Jeffs_Calcs_ID.ID'];
@@ -416,7 +444,11 @@ function getSupplierId(rec){
   return '';
 }
 function getRFQSentId(rec){
-  // Get the RFQs_Sent record ID for deduplication
+  // Get the bridge record ID for deduplication — highest wins, i.e. most recent round.
+  // For a fitting that bridge is RFQs_Sent_Fittings, so it answers the same question
+  // ("which send is this row from") with the same monotonic record id.
+  var fid = fittingId(rec);
+  if(fid) return fid;
   if(rec.CAD_RFQs_Sent_ID && rec.CAD_RFQs_Sent_ID.ID) return rec.CAD_RFQs_Sent_ID.ID;
   if(rec['CAD_RFQs_Sent_ID.ID']) return rec['CAD_RFQs_Sent_ID.ID'];
   return rec.CAD_RFQs_Sent_ID || '';
@@ -425,7 +457,7 @@ function getRFQSentId(rec){
 function renderTable(){
   var tb=document.getElementById('main-tbody');
   var html='';
-  var sortedLines=Object.keys(lineGroups).sort(function(a,b){return (lineNums[a]||0)-(lineNums[b]||0);});
+  var sortedLines=Object.keys(lineGroups).sort(function(a,b){return (lineSort[a]||0)-(lineSort[b]||0);});
   document.getElementById('sel-total').textContent=sortedLines.length;
 
   sortedLines.forEach(function(ln){
@@ -435,7 +467,11 @@ function renderTable(){
     var hasAnyQuote=rows.some(function(r){ var sn=getSupplierName(r); return (sn!=='')||(r.CAD_Price_Per_Lb&&parseFloat(r.CAD_Price_Per_Lb)>0); });
     var allocBadge=selectedId?'<span class="badge badge-green" style="font-size:10px;">Sourced</span>':(!hasAnyQuote?'<span class="badge badge-amber" style="font-size:10px;">No quotes</span>':'');
 
-    html+='<tr class="line-hdr"><td colspan="12">Line '+(lineNums[ln]||'?')+' &nbsp;<span class="line-hdr-desc">'+desc+'</span>'+(allocBadge?'&nbsp;&nbsp;'+allocBadge:'')+'</td></tr>';
+    // Fittings number from 1 in their own sequence, so "Line 1" would appear twice
+    // in one quote with no way to tell which is which. The key's prefix is the only
+    // thing that distinguishes them by the time we get here.
+    var lineLabel=(ln.charAt(0)==='F'?'Fitting ':'Line ')+(lineNums[ln]||'?');
+    html+='<tr class="line-hdr"><td colspan="12">'+lineLabel+' &nbsp;<span class="line-hdr-desc">'+desc+'</span>'+(allocBadge?'&nbsp;&nbsp;'+allocBadge:'')+'</td></tr>';
 
     var prices=rows.filter(function(r){return r.CAD_Price_Per_Lb&&parseFloat(r.CAD_Price_Per_Lb)>0;}).map(function(r){return parseFloat(r.CAD_Price_Per_Lb);});
     var minPrice=prices.length>0?Math.min.apply(null,prices):null;
@@ -464,7 +500,9 @@ function renderTable(){
       var rowDesc=getDesc(rec,desc);
 
       html+='<tr class="sup-row'+(isSourced?' sourced':'')+(!canSource?' no-quote':'')+'">';
-      html+='<td class="line-num">'+ln+'</td>';
+      // The line NUMBER, not the group key — `ln` is an opaque identity string
+      // ('J…' / 'F…') and printing it put a raw record id in the Line column.
+      html+='<td class="line-num">'+(lineNums[ln]||'')+'</td>';
       html+='<td class="desc-cell">'+rowDesc+'</td>';
       html+='<td class="c num-cell">'+(getQty(rec)||'—')+'</td>';
       html+='<td class="r num-cell">'+fmtLb(getUnitWt(rec))+'</td>';
