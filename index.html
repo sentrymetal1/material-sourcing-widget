@@ -53,6 +53,18 @@ body{font-family:'DM Sans',sans-serif !important;background:#f0f4f8;color:#1A1D2
 .warn-body{font-size:12px;color:#5A3A00 !important;line-height:1.5;}
 .warn-suppliers{font-weight:600;color:#7A4F00 !important;}
 
+/* A fitting is quoted per-each, so its $/lb is a derived number the MFG never
+   agreed to. It still exists on the record because that is what ranks suppliers,
+   but showing it invites reading it as a quoted rate. */
+.na-cell{color:#9BA3B0;font-size:11px;font-style:italic;}
+/* When more than one supplier quoted a line, their rows have to read as competing
+   offers rather than as one continuous block. Banding + a left rule does that
+   without a nested table. Single-supplier lines get neither, so nothing changes
+   for the common case. */
+tr.sup-row.multi td:first-child{box-shadow:inset 3px 0 0 #5F94CE;}
+tr.sup-row.multi.alt td{background:#FAFBFD;}
+.supp-count{font-weight:500;color:#5F94CE;font-size:11px;}
+
 .table-wrap{background:#fff;border-radius:8px;border:1px solid #E1E4EA;overflow:hidden;position:relative;}
 .saving-overlay{display:none;position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(255,255,255,0.85);z-index:10;align-items:center;justify-content:center;flex-direction:column;gap:8px;font-size:13px;color:#5F94CE !important;font-weight:500;}
 .saving-overlay.show{display:flex;}
@@ -239,7 +251,7 @@ td.lead-cell.slow{color:#854F0B !important;}
 </div>
 
 <script>
-var BUILD_TAG = 'v1.3 2026-08-16';
+var BUILD_TAG = 'v1.5 2026-08-22';
 var APP = 'type-formsheet-2-18-21';
 var quoteId = null, quoteRef = '', quoteDesc = '';
 // lineSort is separate from lineNums because fittings restart their numbering at 1
@@ -471,12 +483,22 @@ function renderTable(){
     // in one quote with no way to tell which is which. The key's prefix is the only
     // thing that distinguishes them by the time we get here.
     var lineLabel=(ln.charAt(0)==='F'?'Fitting ':'Line ')+(lineNums[ln]||'?');
-    html+='<tr class="line-hdr"><td colspan="12">'+lineLabel+' &nbsp;<span class="line-hdr-desc">'+desc+'</span>'+(allocBadge?'&nbsp;&nbsp;'+allocBadge:'')+'</td></tr>';
+    // Distinct suppliers who actually quoted this line. Named in the header so a
+    // contested line announces itself before you read down the rows — with one
+    // supplier there is nothing to compare and the header stays quiet.
+    var quoting={};
+    rows.forEach(function(r){ var sn=getSupplierName(r); if(sn) quoting[sn]=1; });
+    var suppNames=Object.keys(quoting);
+    var suppHtml=suppNames.length>1
+      ?' &nbsp;<span class="supp-count">'+suppNames.length+' suppliers quoted &middot; '+suppNames.join(', ')+'</span>'
+      :(suppNames.length===1?' &nbsp;<span class="supp-count">'+suppNames[0]+'</span>':'');
+    html+='<tr class="line-hdr"><td colspan="12">'+lineLabel+' &nbsp;<span class="line-hdr-desc">'+desc+'</span>'+suppHtml+(allocBadge?'&nbsp;&nbsp;'+allocBadge:'')+'</td></tr>';
 
     var prices=rows.filter(function(r){return r.CAD_Price_Per_Lb&&parseFloat(r.CAD_Price_Per_Lb)>0;}).map(function(r){return parseFloat(r.CAD_Price_Per_Lb);});
     var minPrice=prices.length>0?Math.min.apply(null,prices):null;
 
-    rows.forEach(function(rec){
+    var contested=rows.length>1;
+    rows.forEach(function(rec,rowIdx){
       var isSourced=selectedId===rec.ID;
       var suppName=getSupplierName(rec);
       var hasSupplier=suppName!=='';
@@ -496,10 +518,16 @@ function renderTable(){
       var leadClass='lead-cell'+(leadDays>14?' slow':'');
       var leadHtml=leadTime?(leadDays?leadDays+' days':leadTime):'<span style="color:#c0c5d0;">—</span>';
 
-      var priceHtml=fmtPl(rec.CAD_Price_Per_Lb)+(isLow&&prices.length>1?'<span class="low-star">★</span>':'');
+      // Fittings are quoted per-each. Their $/lb exists only so the cheapest-supplier
+      // pick has something to rank on (same winner either way — every supplier quotes
+      // the same part at the same weight), but printing it reads as a rate the MFG was
+      // offered, which it never was. So the star moves to Total Price for fittings.
+      var isFit=isFitting(rec);
+      var starHtml=(isLow&&prices.length>1)?'<span class="low-star">★</span>':'';
+      var priceHtml=isFit?'<span class="na-cell">per each</span>':fmtPl(rec.CAD_Price_Per_Lb)+starHtml;
       var rowDesc=getDesc(rec,desc);
 
-      html+='<tr class="sup-row'+(isSourced?' sourced':'')+(!canSource?' no-quote':'')+'">';
+      html+='<tr class="sup-row'+(isSourced?' sourced':'')+(!canSource?' no-quote':'')+(contested?' multi':'')+(contested&&rowIdx%2===1?' alt':'')+'">';
       // The line NUMBER, not the group key — `ln` is an opaque identity string
       // ('J…' / 'F…') and printing it put a raw record id in the Line column.
       html+='<td class="line-num">'+(lineNums[ln]||'')+'</td>';
@@ -510,7 +538,7 @@ function renderTable(){
       html+='<td><span class="sup-tag'+(canSource?'':' nr')+'">'+( suppName||'—')+'</span></td>';
       html+='<td class="r num-cell">'+priceHtml+'</td>';
       html+='<td class="r num-cell">'+fmt(getUnitPrice(rec))+'</td>';
-      html+='<td class="r num-cell'+(isSourced?' sourced-price':'')+'">'+fmt(rec.CAD_Total_Price)+'</td>';
+      html+='<td class="r num-cell'+(isSourced?' sourced-price':'')+'">'+fmt(rec.CAD_Total_Price)+(isFit?starHtml:'')+'</td>';
       html+='<td class="'+leadClass+'">'+leadHtml+'</td>';
       html+='<td>'+statusHtml+'</td>';
       html+='<td class="c">'+togHtml+'</td>';
