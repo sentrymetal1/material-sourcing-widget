@@ -252,7 +252,7 @@ td.lead-cell.slow{color:#854F0B !important;}
 </div>
 
 <script>
-var BUILD_TAG = 'v1.6 2026-08-22';
+var BUILD_TAG = 'v1.7 2026-09-04';
 var APP = 'type-formsheet-2-18-21';
 var quoteId = null, quoteRef = '', quoteDesc = '';
 // lineSort is separate from lineNums because fittings restart their numbering at 1
@@ -675,7 +675,7 @@ function updateSVFTotals(){
     if(sIdx>=suppKeys.length){ onSaveComplete(supplierTotals); return; }
     var suppId=suppKeys[sIdx]; sIdx++;
     ZOHO.CREATOR.API.getAllRecords({
-      appName:APP, reportName:'All_Supplier_Verify_Form_Report',
+      appName:APP, reportName:'Supplier_Verify_Form_Report',
       criteria:'(SV_Quote_Form == '+quoteId+' && SV_Supplier_Entry_Form == '+suppId+')',
       page:1, pageSize:5
     }).then(function(resp){
@@ -690,7 +690,7 @@ function updateSVFTotals(){
         var validUntil = svf.Valid_Until_Date || '';
         stampExpiry(suppId, validUntil);
         ZOHO.CREATOR.API.updateRecord({
-          appName:APP, reportName:'All_Supplier_Verify_Form_Report', id:svf.ID,
+          appName:APP, reportName:'Supplier_Verify_Form_Report', id:svf.ID,
           data:{data:{Allocation_Amount:allocAmt,Allocation_Percentage:pct}}
         }).then(function(r){
           if(r && r.code && r.code !== 3000) warnSave('Allocation not written for '+supplierTotals[suppId].name+' (code '+r.code+')');
