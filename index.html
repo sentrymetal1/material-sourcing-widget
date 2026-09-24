@@ -252,7 +252,7 @@ td.lead-cell.slow{color:#854F0B !important;}
 </div>
 
 <script>
-var BUILD_TAG = 'v1.7 2026-09-04';
+var BUILD_TAG = 'v1.8 2026-09-23';
 var APP = 'type-formsheet-2-18-21';
 var quoteId = null, quoteRef = '', quoteDesc = '';
 // lineSort is separate from lineNums because fittings restart their numbering at 1
@@ -569,16 +569,32 @@ function sourceAllAvailable(){
 
 function clearAll(){ selections={}; renderTable(); updateStats(); }
 
+// getTotalWt returns null when a fitting has no catalogued weight — correctly, because
+// a blank is honest and a zero is not. But `parseFloat(null)||0` turns that blank into
+// a zero the moment it is summed, so the footer reported a weight that quietly excluded
+// whole lines. Count them instead, and say so next to the number.
+function sumSelectedWeight(){
+  var sum=0, missing=0;
+  Object.keys(selections).forEach(function(ln){
+    var rec=allRecords.find(function(r){return r.ID===selections[ln];});
+    if(!rec) return;
+    var w=parseFloat(getTotalWt(rec));
+    if(isFinite(w)) sum+=w; else missing++;
+  });
+  return {sum:sum, missing:missing};
+}
+
 function updateStats(){
   var totalLines=Object.keys(lineGroups).length;
   var sourcedCount=Object.keys(selections).length;
-  var totalWt=0, totalAmt=0;
+  var totalAmt=0;
   var selectedSuppliers={};
+  var wt=sumSelectedWeight();
+  var totalWt=wt.sum;
 
   Object.keys(selections).forEach(function(ln){
     var rec=allRecords.find(function(r){return r.ID===selections[ln];});
     if(rec){
-      totalWt+=parseFloat(getTotalWt(rec))||0;
       totalAmt+=parseFloat(rec.CAD_Total_Price)||0;
       var suppName=getSupplierName(rec)||'Unknown';
       selectedSuppliers[suppName]=true;
@@ -593,7 +609,9 @@ function updateStats(){
   document.getElementById('st-remain').textContent=totalLines-sourcedCount;
   document.getElementById('st-amt').textContent=fmt(totalAmt);
   document.getElementById('sel-count').textContent=sourcedCount;
-  document.getElementById('f-wt').textContent=fmtLb(totalWt);
+  // Say when the number is incomplete. A weight that silently omits lines is worse
+  // than one that admits it does.
+  document.getElementById('f-wt').textContent=fmtLb(totalWt)+(wt.missing?' (+'+wt.missing+' unweighed)':'');
   document.getElementById('f-amt').textContent=fmt(totalAmt);
   document.getElementById('f-prog').textContent=sourcedCount+' of '+totalLines;
   document.getElementById('f-suppliers').textContent=suppCount>0?suppCount+' supplier'+(suppCount>1?'s':''):'—';
@@ -611,8 +629,15 @@ function updateStats(){
   document.getElementById('confirm-btn2').disabled=!hasAny;
 }
 
+// PREFER is what records which supplier won each line. If those writes fail the quote
+// still flips to Purchase Order Pending and the success screen still prints a dollar
+// total, while not one line has a winning supplier — so the count is carried through
+// to the success screen rather than left to the status bar.
+var preferFailures = 0;
 function confirmSourcing(){
   if(Object.keys(selections).length===0) return;
+  preferFailures = 0;
+  saveWarnings = [];
   document.getElementById('saving-overlay').classList.add('show');
   document.getElementById('confirm-btn').disabled=true;
   document.getElementById('confirm-btn2').disabled=true;
@@ -630,7 +655,20 @@ function confirmSourcing(){
     ZOHO.CREATOR.API.updateRecord({
       appName:APP, reportName:'Customer_New_RFQ_Acceptance_Detail_Report',
       id:item.id, data:{data:{PREFER:item.prefer}}
-    }).then(function(){nextUpdate();}).catch(function(){nextUpdate();});
+    }).then(function(resp){
+      // Zoho answers HTTP 200 with an error code in the body on quota, permissions or
+      // a rejected value, so a resolved promise is NOT proof the write landed. 3000 is
+      // success. Without this check a quota wall reads as a clean save.
+      if(resp && resp.code && resp.code !== 3000){
+        warnSave('Line '+item.id+': PREFER not saved (code '+resp.code+')');
+        preferFailures++;
+      }
+      nextUpdate();
+    }).catch(function(e){
+      warnSave('Line '+item.id+': PREFER not saved'+(e && e.message ? ' — '+e.message : ''));
+      preferFailures++;
+      nextUpdate();
+    });
   }
   nextUpdate();
 }
@@ -723,13 +761,15 @@ function stampExpiry(suppId, validUntil){
 function onSaveComplete(supplierTotals){
   document.getElementById('saving-overlay').classList.remove('show');
   setStatus(saveWarnings.length?('save complete, '+saveWarnings.length+' warning(s)'):'save complete');
-  var totalSourced=Object.keys(selections).length, totalWt=0, totalAmt=0;
+  var totalSourced=Object.keys(selections).length, totalAmt=0;
+  var wt=sumSelectedWeight();
+  var totalWt=wt.sum;
   Object.keys(selections).forEach(function(ln){
     var rec=allRecords.find(function(r){return r.ID===selections[ln];});
-    if(rec){ totalWt+=parseFloat(getTotalWt(rec))||0; totalAmt+=parseFloat(rec.CAD_Total_Price)||0; }
+    if(rec){ totalAmt+=parseFloat(rec.CAD_Total_Price)||0; }
   });
   document.getElementById('sum-items').textContent=totalSourced;
-  document.getElementById('sum-wt').textContent=fmtLb(totalWt);
+  document.getElementById('sum-wt').textContent=fmtLb(totalWt)+(wt.missing?' (+'+wt.missing+' unweighed)':'');
   document.getElementById('sum-amt').textContent=fmt(totalAmt);
   // Only claim the status moved when nothing warned about it — the old copy said so
   // unconditionally, which is how a quote sat in the wrong dashboard tab while this
