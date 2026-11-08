@@ -94,6 +94,12 @@ td.lead-cell.slow{color:#854F0B !important;}
 .sup-tag.nr{background:#F1EFE8;color:#6B6F7A !important;}
 .low-star{color:#3B6D11 !important;font-size:10px;margin-left:2px;font-weight:700;}
 .tie-chip{display:inline-block;font-size:10px;padding:2px 8px;border-radius:20px;font-weight:500;background:#FAEEDA;color:#854F0B !important;margin-left:6px;}
+#open-lines-warn{display:none;margin:8px 0 12px;background:#FFF8E8;border:1px solid #F5C842;border-left:4px solid #F5C842;border-radius:6px;padding:12px 14px;font-size:12px;color:#4A3000 !important;}
+#open-lines-warn.show{display:block;}
+.olw-title{font-weight:700;font-size:13px;color:#3A2000 !important;margin-bottom:4px;}
+.olw-list{color:#4A3000 !important;margin-bottom:4px;}
+.olw-body{color:#4A3000 !important;margin-bottom:10px;}
+.olw-actions{display:flex;gap:8px;}
 .tie-count{font-size:12px;font-weight:600;color:#854F0B !important;margin-left:12px;text-decoration:underline;cursor:pointer;}
 .sel-btn{display:inline-flex;align-items:center;justify-content:center;min-width:85px;padding:5px 12px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;border:2px solid;font-family:'DM Sans',sans-serif;transition:all 0.15s;white-space:nowrap;}
 .sel-btn.selected{background:#3B6D11;color:#fff !important;border-color:#3B6D11;}
@@ -176,6 +182,16 @@ td.lead-cell.slow{color:#854F0B !important;}
       <button class="btn btn-success" id="confirm-btn" onclick="confirmSourcing()" disabled>Confirm sourcing &amp; save</button>
     </div>
 
+    <div id="open-lines-warn">
+      <div class="olw-title"><span id="olw-count"></span> not sourced</div>
+      <div class="olw-list" id="olw-list"></div>
+      <div class="olw-body">They will be saved with no supplier and no price.</div>
+      <div class="olw-actions">
+        <button class="btn btn-success" onclick="sourceOpenLines()">Source them</button>
+        <button class="btn btn-outline" onclick="saveAnyway()">Save anyway</button>
+      </div>
+    </div>
+
     <div class="filter-bar">
       <label>Auto-select by supplier:</label>
       <select id="supplier-filter" onchange="filterBySupplier(this.value)">
@@ -255,7 +271,7 @@ td.lead-cell.slow{color:#854F0B !important;}
 </div>
 
 <script>
-var BUILD_TAG = 'v1.11 2026-11-08';
+var BUILD_TAG = 'v1.12 2026-11-08';
 var APP = 'type-formsheet-2-18-21';
 var quoteId = null, quoteRef = '', quoteDesc = '';
 // lineSort is separate from lineNums because fittings restart their numbering at 1
@@ -263,6 +279,7 @@ var quoteId = null, quoteRef = '', quoteDesc = '';
 // interleaves fitting line 1 with structural line 1. Display uses lineNums, order
 // uses lineSort, which pushes fittings past every structural line.
 var allRecords = [], lineGroups = {}, selections = {}, supplierMap = {}, lineNums = {}, lineSort = {};
+var restoredFromHidden = 0;
 
 function setStatus(msg){ var el=document.getElementById('status-bar'); if(el) el.textContent=BUILD_TAG+' | '+msg; }
 
@@ -345,10 +362,21 @@ function processRecords(){
   // Pre-select whatever was sourced previously so reopening shows the CURRENT state.
   // Without this the screen comes up blank on an already-sourced quote, and confirming
   // again writes PREFER=NO to every row — silently wiping the earlier sourcing.
-  Object.keys(lineGroups).forEach(function(ln){
-    lineGroups[ln].forEach(function(rec){
-      if(String(rec.PREFER||'').toUpperCase()==='YES') selections[ln]=rec.ID;
-    });
+  //
+  // Read from EVERY row, not just the ones that survived the dedup above. On
+  // MMQ-100479 both fittings came back unselected after a confirmed save. Likely
+  // cause: a line holding more than one row for the same supplier, the dedup keeping
+  // one, and the YES sitting on the other. So the pick is restored by SUPPLIER:
+  // whichever of that supplier's rows is showing for the line becomes the selection.
+  // The status bar counts these restores, which confirms or rules out that cause.
+  restoredFromHidden=0;
+  allRecords.forEach(function(rec){
+    if(String(rec.PREFER||'').toUpperCase()!=='YES') return;
+    var ln=getLineKey(rec), rows=lineGroups[ln]; if(!rows) return;
+    if(rows.some(function(r){ return r.ID===rec.ID; })){ selections[ln]=rec.ID; return; }
+    var sid=String(getSupplierId(rec)||getSupplierName(rec));
+    var shown=rows.find(function(r){ return String(getSupplierId(r)||getSupplierName(r))===sid; });
+    if(shown && !selections[ln]){ selections[ln]=shown.ID; restoredFromHidden++; }
   });
 
   document.getElementById('hdr-title').textContent='Material sourcing — '+(quoteRef||'Quote');
@@ -368,7 +396,7 @@ function processRecords(){
   // If this reads anything other than 0 on a current quote, CAD_Jeffs_Calcs_ID is not coming back
   // from the report — check it is a configured column — and lines can still collide.
   var noKey = allRecords.filter(function(r){ return getLineKey(r).charAt(0)==='L'; }).length;
-  setStatus('loaded '+allRecords.length+' recs | '+Object.keys(supplierMap).length+' suppliers | '+Object.keys(lineGroups).length+' lines'+(noKey>0?' | ⚠ '+noKey+' rows missing Jeffs Calcs ID':''));
+  setStatus('loaded '+allRecords.length+' recs | '+Object.keys(supplierMap).length+' suppliers | '+Object.keys(lineGroups).length+' lines'+(noKey>0?' | ⚠ '+noKey+' rows missing Jeffs Calcs ID':'')+(restoredFromHidden>0?' | '+restoredFromHidden+' picks restored from a duplicate row':''));
 }
 
 function filterBySupplier(suppId){
@@ -563,6 +591,7 @@ function renderTable(){
 
 function setSelection(ln,recId,val){
   if(val){ selections[ln]=recId; } else { if(selections[ln]===recId) delete selections[ln]; }
+  if(openLines().length===0) hideOpenLines();
   renderTable(); updateStats();
 }
 
@@ -697,8 +726,39 @@ function updateStats(){
 // total, while not one line has a winning supplier — so the count is carried through
 // to the success screen rather than left to the status bar.
 var preferFailures = 0;
-function confirmSourcing(){
+
+// Lines with no pick are saved as PREFER=NO on every row — no supplier, no price —
+// and nothing said so until the project showed $0 on them. Confirm now stops and
+// names them; "Save anyway" stays, for a line that genuinely has no quote yet.
+function openLines(){
+  return Object.keys(lineGroups).filter(function(ln){ return !selections[ln]; })
+    .sort(function(a,b){return (lineSort[a]||0)-(lineSort[b]||0);});
+}
+function lineName(ln){
+  var d=getDesc(lineGroups[ln][0],'');
+  d=String(d).split('|').slice(0,2).join('|').trim(); if(d==='—') d='';
+  return (ln.charAt(0)==='F'?'Fitting ':'Line ')+(lineNums[ln]||'?')+(d?' '+d:'');
+}
+function hideOpenLines(){ document.getElementById('open-lines-warn').classList.remove('show'); }
+function sourceOpenLines(){
+  hideOpenLines();
+  var first=openLines()[0], el=first&&document.getElementById('line-'+first);
+  if(el) el.scrollIntoView({behavior:'smooth',block:'center'});
+}
+function saveAnyway(){ hideOpenLines(); confirmSourcing(true); }
+
+function confirmSourcing(force){
   if(Object.keys(selections).length===0) return;
+  var open=openLines();
+  if(open.length>0 && force!==true){
+    document.getElementById('olw-count').textContent=open.length+' line'+(open.length>1?'s':'');
+    document.getElementById('olw-list').textContent=open.map(lineName).join(' · ');
+    var box=document.getElementById('open-lines-warn');
+    box.classList.add('show');
+    box.scrollIntoView({behavior:'smooth',block:'center'});
+    return;
+  }
+  hideOpenLines();
   preferFailures = 0;
   saveWarnings = [];
   document.getElementById('saving-overlay').classList.add('show');
