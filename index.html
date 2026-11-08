@@ -271,7 +271,7 @@ td.lead-cell.slow{color:#854F0B !important;}
 </div>
 
 <script>
-var BUILD_TAG = 'v1.13 2026-11-08';
+var BUILD_TAG = 'v1.14 2026-11-08';
 var APP = 'type-formsheet-2-18-21';
 var quoteId = null, quoteRef = '', quoteDesc = '';
 // lineSort is separate from lineNums because fittings restart their numbering at 1
@@ -436,11 +436,18 @@ function loadQuoteLeadTimes(){
         var sid=(s&&typeof s==='object')?String(s.ID||''):String(s||'');
         var lt=r.Lead_Time_For_Ship_Complete;
         if(lt&&typeof lt==='object') lt=lt.display_value||'';
-        if(sid&&lt) quoteLead[sid]=String(lt);
+        if(!lt) return;
+        // Keyed by id AND name: the sourcing rows carry no supplier lookup in this
+        // report, so getSupplierId() falls back to the supplier's NAME, and an id-only
+        // key never matched (v1.13 showed "—" on MMQ-100479 though every response had one).
+        if(sid) quoteLead[sid]=String(lt);
+        var nm=svSupplierName(s);
+        if(nm) quoteLead['name:'+nm]=String(lt);
       });
   }).catch(function(){ /* page works without it; lines just show — */ });
 }
-function quoteLeadOf(rec){ return quoteLead[String(getSupplierId(rec))]||''; }
+function svSupplierName(s){ return (s&&typeof s==='object')?String(s.display_value||s.zc_display_value||s.Company_Name||''):''; }
+function quoteLeadOf(rec){ return quoteLead[String(getSupplierId(rec))]||quoteLead['name:'+getSupplierName(rec)]||''; }
 function getItemStatus(rec){ 
   if(rec['CAD_RFQs_Sent_ID.Item_Verification_Status']) return rec['CAD_RFQs_Sent_ID.Item_Verification_Status'];
   if(rec.CAD_RFQs_Sent_ID && rec.CAD_RFQs_Sent_ID.Item_Verification_Status) return rec.CAD_RFQs_Sent_ID.Item_Verification_Status;
@@ -867,7 +874,7 @@ function updateSVFTotals(){
       var mine=rows.filter(function(r){
         var s=r.SV_Supplier_Entry_Form;
         var sid=(s&&typeof s==='object')?String(s.ID||''):String(s||'');
-        var sname=(s&&typeof s==='object')?String(s.display_value||''):'';
+        var sname=svSupplierName(s);
         return sid===String(suppId) || (sname && sname===supplierTotals[suppId].name);
       }).sort(function(a,b){ return String(b.ID).length-String(a.ID).length || (String(b.ID)>String(a.ID)?1:-1); });
       if(mine.length>0){
@@ -977,7 +984,7 @@ function onSaveComplete(supplierTotals){
   var suppRows='';
   Object.keys(supplierTotals).forEach(function(suppId){
     var s=supplierTotals[suppId];
-    var lead=quoteLead[String(suppId)]||'';
+    var lead=quoteLead[String(suppId)]||quoteLead['name:'+s.name]||'';
     suppRows+='<div class="supplier-summary-row"><div><div class="supplier-summary-name">'+s.name+'</div><div style="font-size:11px;color:#9BA3B0;">'+s.items+' item(s) | '+fmtLb(s.wt)+(lead?' | lead time '+lead:'')+'</div></div><div class="supplier-summary-amt">'+fmt(s.total)+'</div></div>';
   });
   document.getElementById('supplier-summary-rows').innerHTML=suppRows;
