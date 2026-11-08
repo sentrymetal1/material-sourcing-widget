@@ -255,7 +255,7 @@ td.lead-cell.slow{color:#854F0B !important;}
 </div>
 
 <script>
-var BUILD_TAG = 'v1.10 2026-11-08';
+var BUILD_TAG = 'v1.11 2026-11-08';
 var APP = 'type-formsheet-2-18-21';
 var quoteId = null, quoteRef = '', quoteDesc = '';
 // lineSort is separate from lineNums because fittings restart their numbering at 1
@@ -790,8 +790,15 @@ function updateSVFTotals(){
       }).sort(function(a,b){ return String(b.ID).length-String(a.ID).length || (String(b.ID)>String(a.ID)?1:-1); });
       if(mine.length>0){
         var svf=mine[0];
-        var allocAmt=supplierTotals[suppId].total;
-        var pct=Math.round((allocAmt/(parseFloat(svf.Total_Amount_Currency)||1))*100);
+        // Both writes came back 3001 ("invalid column value") on MMQ-100479. Zoho does
+        // that when a value has more digits than the field allows, and both could:
+        // a summed total can carry float noise (4342.770000000001), and a quote total
+        // read back as formatted text ("$4,342.77") made parseFloat NaN, dividing by 1
+        // and sending a percentage in the hundreds of thousands. If 3001 persists, the
+        // warning now names the field.
+        var allocAmt=Math.round(supplierTotals[suppId].total*100)/100;
+        var quoted=parseFloat(String(svf.Total_Amount_Currency||'').replace(/[^0-9.\-]/g,''));
+        var pct=quoted>0?Math.min(100,Math.max(0,Math.round(allocAmt/quoted*100))):0;
         // Quote_Expiration_Date/_Timestamp came from the report's ALLOCATE action,
         // which this widget replaced without carrying them over — so since then no
         // sourcing selection has recorded how long its price is good for. Stamped
@@ -802,10 +809,10 @@ function updateSVFTotals(){
           appName:APP, reportName:'Supplier_Verify_Form_Report', id:svf.ID,
           data:{data:{Allocation_Amount:allocAmt,Allocation_Percentage:pct}}
         }).then(function(r){
-          if(r && r.code && r.code !== 3000) warnSave('Allocation not written for '+supplierTotals[suppId].name+' (code '+r.code+')');
+          if(r && r.code && r.code !== 3000) warnSave('Allocation not written for '+supplierTotals[suppId].name+' — '+errText(r));
           nextSupplier();
         }).catch(function(e){
-          warnSave('Allocation not written for '+supplierTotals[suppId].name);
+          warnSave('Allocation not written for '+supplierTotals[suppId].name+' — '+errText(e));
           nextSupplier();
         });
       } else { warnSave('No Supplier Verify record found for '+supplierTotals[suppId].name+' ('+rows.length+' response(s) on this quote) — allocation not written'); nextSupplier(); }
@@ -833,7 +840,14 @@ function errText(err){
   if(!err) return 'no detail';
   if(typeof err==='string') return err;
   var e=err.responseText?(function(){ try{return JSON.parse(err.responseText);}catch(x){return err.responseText;} })():err;
-  if(e && e.code) return 'code '+e.code+(e.message?': '+e.message:'');
+  // A 3001/3002 names the offending field in e.error ({Field_Link:"message"}) —
+  // that is the part that says what to fix, so it goes in the warning.
+  if(e && e.code){
+    var detail=e.message||'';
+    if(e.error && typeof e.error==='object') detail=Object.keys(e.error).map(function(k){ return k+': '+e.error[k]; }).join('; ');
+    else if(e.error) detail=String(e.error);
+    return 'code '+e.code+(detail?' ('+detail+')':'');
+  }
   try{ return JSON.stringify(e).slice(0,200); }catch(x){ return String(e); }
 }
 
