@@ -237,7 +237,7 @@ td.lead-cell.slow{color:#854F0B !important;}
     </div>
 
     <div class="ref-note">
-      Sourcing totals shown above reflect your current selections. Verify sourced weight and amount against your project BOM before confirming. Once saved, these figures will be used for purchase order generation.
+      Sourcing totals shown above reflect your current selections. Verify sourced weight and amount against your project BOM before confirming. Once saved, these prices carry to the project's material pricing; purchase orders are raised once the project becomes a work order.
     </div>
 
     <div class="disclaimer-block">
@@ -265,13 +265,13 @@ td.lead-cell.slow{color:#854F0B !important;}
     </div>
     <div class="success-actions">
       <button class="btn btn-outline" onclick="showMainPanel()">Review &amp; modify sourcing</button>
-      <button class="btn btn-primary" onclick="proceedToPO()">Proceed to purchase order ›</button>
+      <button class="btn btn-primary" id="back-to-project" onclick="backToProject()">Back to project ›</button>
     </div>
   </div>
 </div>
 
 <script>
-var BUILD_TAG = 'v1.15 2026-11-08';
+var BUILD_TAG = 'v1.16 2026-11-08';
 var APP = 'type-formsheet-2-18-21';
 var quoteId = null, quoteRef = '', quoteDesc = '';
 // lineSort is separate from lineNums because fittings restart their numbering at 1
@@ -992,9 +992,26 @@ function onSaveComplete(supplierTotals){
   document.getElementById('success-panel').style.display='block';
 }
 
-function proceedToPO(){
-  try{ZOHO.CREATOR.UTIL.setValueToField('quote_sourcing_complete','true');}catch(e){}
-  window.parent.postMessage({type:'sourcing_complete',quote_id:quoteId},'*');
+// Sourcing happens at QUOTE stage — the job is not won yet, so there is no purchase
+// order to raise (Mark, 2026-11-08: the PO comes once it is a work order). The old
+// button posted a message nothing listened for. It now returns to the project.
+// Project_Dashboard gets all four of its params: an empty one blanks that field on
+// the embedded project form and trips "Invalid entries" on its next save.
+function backToProject(){
+  var btn=document.getElementById('back-to-project'); if(btn){ btn.disabled=true; btn.textContent='Opening project…'; }
+  var fail=function(msg){ if(btn){ btn.disabled=false; btn.textContent='Back to project ›'; } setStatus(msg); alert('Could not open the project: '+msg); };
+  ZOHO.CREATOR.API.getRecordById({ appName:APP, reportName:'All_Quotes', id:quoteId }).then(function(resp){
+    var q=(resp&&resp.data)||{};
+    var id=function(v){ return (v&&typeof v==='object')?String(v.ID||''):String(v||''); };
+    var proj=q.Project_Number||{};
+    var p={ project_id:id(proj), client_id:id(q.MFG_Customer), manufacture:id(q.Customer_Entry_Form),
+            description:String(proj.Project_Description||q.Quote_Description||'') };
+    var missing=Object.keys(p).filter(function(k){ return !p[k]; });
+    if(missing.length) return fail('the quote has no '+missing.join(', ')+'.');
+    var url='#Page:Project_Dashboard?project_id='+p.project_id+'&client_id='+p.client_id
+      +'&description='+encodeURIComponent(p.description)+'&manufacture='+p.manufacture;
+    ZOHO.CREATOR.UTIL.navigateParentURL({ action:'open', url:url, window:'same' });
+  }).catch(function(e){ fail(errText(e)); });
 }
 
 function parseUrlParams(url){
