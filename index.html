@@ -255,7 +255,7 @@ td.lead-cell.slow{color:#854F0B !important;}
 </div>
 
 <script>
-var BUILD_TAG = 'v1.9 2026-11-08';
+var BUILD_TAG = 'v1.10 2026-11-08';
 var APP = 'type-formsheet-2-18-21';
 var quoteId = null, quoteRef = '', quoteDesc = '';
 // lineSort is separate from lineNums because fittings restart their numbering at 1
@@ -761,6 +761,7 @@ function updateQuoteStatus(){
 }
 
 function updateSVFTotals(){
+  svCache=null;
   var supplierTotals={};
   Object.keys(selections).forEach(function(ln){
     var rec=allRecords.find(function(r){return r.ID===selections[ln];}); if(!rec) return;
@@ -775,13 +776,20 @@ function updateSVFTotals(){
   function nextSupplier(){
     if(sIdx>=suppKeys.length){ onSaveComplete(supplierTotals); return; }
     var suppId=suppKeys[sIdx]; sIdx++;
-    ZOHO.CREATOR.API.getAllRecords({
-      appName:APP, reportName:'Supplier_Verify_Form_Report',
-      criteria:'(SV_Quote_Form == '+quoteId+' && SV_Supplier_Entry_Form == '+suppId+')',
-      page:1, pageSize:5
-    }).then(function(resp){
-      if(resp&&resp.data&&resp.data.length>0){
-        var svf=resp.data[0];
+    // Read by QUOTE only and match the supplier here. Putting the supplier in the
+    // criteria failed silently on MMQ-100479 (v1.9): the report has no filter, so the
+    // read itself was rejected, and the old catch printed no reason. Matching
+    // client-side also survives a supplier id that arrives as a name, and picks the
+    // newest response when a supplier revised.
+    readSVForQuote().then(function(rows){
+      var mine=rows.filter(function(r){
+        var s=r.SV_Supplier_Entry_Form;
+        var sid=(s&&typeof s==='object')?String(s.ID||''):String(s||'');
+        var sname=(s&&typeof s==='object')?String(s.display_value||''):'';
+        return sid===String(suppId) || (sname && sname===supplierTotals[suppId].name);
+      }).sort(function(a,b){ return String(b.ID).length-String(a.ID).length || (String(b.ID)>String(a.ID)?1:-1); });
+      if(mine.length>0){
+        var svf=mine[0];
         var allocAmt=supplierTotals[suppId].total;
         var pct=Math.round((allocAmt/(parseFloat(svf.Total_Amount_Currency)||1))*100);
         // Quote_Expiration_Date/_Timestamp came from the report's ALLOCATE action,
@@ -800,10 +808,33 @@ function updateSVFTotals(){
           warnSave('Allocation not written for '+supplierTotals[suppId].name);
           nextSupplier();
         });
-      } else { warnSave('No Supplier Verify record found for '+supplierTotals[suppId].name+' — allocation not written'); nextSupplier(); }
-    }).catch(function(){ warnSave('Could not read Supplier Verify record for '+supplierTotals[suppId].name); nextSupplier(); });
+      } else { warnSave('No Supplier Verify record found for '+supplierTotals[suppId].name+' ('+rows.length+' response(s) on this quote) — allocation not written'); nextSupplier(); }
+    }).catch(function(err){ warnSave('Could not read Supplier Verify record for '+supplierTotals[suppId].name+' — '+errText(err)); nextSupplier(); });
   }
   nextSupplier();
+}
+
+// One read per save, shared by every supplier. "No records" (9280) is an answer,
+// not a failure, so it resolves to an empty list instead of falling into the catch.
+var svCache=null;
+function readSVForQuote(){
+  if(svCache) return svCache;
+  svCache=ZOHO.CREATOR.API.getAllRecords({
+    appName:APP, reportName:'Supplier_Verify_Form_Report',
+    criteria:'(SV_Quote_Form == '+quoteId+')', page:1, pageSize:200
+  }).then(function(resp){ return (resp&&resp.data)||[]; })
+    .catch(function(err){
+      if(String(errText(err)).indexOf('9280')>-1) return [];
+      svCache=null; throw err;
+    });
+  return svCache;
+}
+function errText(err){
+  if(!err) return 'no detail';
+  if(typeof err==='string') return err;
+  var e=err.responseText?(function(){ try{return JSON.parse(err.responseText);}catch(x){return err.responseText;} })():err;
+  if(e && e.code) return 'code '+e.code+(e.message?': '+e.message:'');
+  try{ return JSON.stringify(e).slice(0,200); }catch(x){ return String(e); }
 }
 
 // Stamp the price's shelf life onto every CAD row sourced from this supplier.
