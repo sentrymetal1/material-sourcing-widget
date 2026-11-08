@@ -271,7 +271,7 @@ td.lead-cell.slow{color:#854F0B !important;}
 </div>
 
 <script>
-var BUILD_TAG = 'v1.16 2026-11-08';
+var BUILD_TAG = 'v1.17 2026-11-08';
 var APP = 'type-formsheet-2-18-21';
 var quoteId = null, quoteRef = '', quoteDesc = '';
 // lineSort is separate from lineNums because fittings restart their numbering at 1
@@ -1000,17 +1000,38 @@ function onSaveComplete(supplierTotals){
 function backToProject(){
   var btn=document.getElementById('back-to-project'); if(btn){ btn.disabled=true; btn.textContent='Opening project…'; }
   var fail=function(msg){ if(btn){ btn.disabled=false; btn.textContent='Back to project ›'; } setStatus(msg); alert('Could not open the project: '+msg); };
-  ZOHO.CREATOR.API.getRecordById({ appName:APP, reportName:'All_Quotes', id:quoteId }).then(function(resp){
-    var q=(resp&&resp.data)||{};
-    var id=function(v){ return (v&&typeof v==='object')?String(v.ID||''):String(v||''); };
-    var proj=q.Project_Number||{};
-    var p={ project_id:id(proj), client_id:id(q.MFG_Customer), manufacture:id(q.Customer_Entry_Form),
-            description:String(proj.Project_Description||q.Quote_Description||'') };
-    var missing=Object.keys(p).filter(function(k){ return !p[k]; });
-    if(missing.length) return fail('the quote has no '+missing.join(', ')+'.');
+  // The widget SDK does not hand lookups back in one shape: {ID,..}, {id,..}, an array of
+  // those, a bare id string, or a flat "Field.ID" key. REST gave {ID} for all three on
+  // MMQ-100479 while the SDK dropped Project_Number and Customer_Entry_Form (v1.16).
+  var idOf=function(q,f){
+    var v=q[f]; if(Array.isArray(v)) v=v[0];
+    var c=[ v&&typeof v==='object'?(v.ID||v.id):v, q[f+'.ID'], q[f+'_ID'] ];
+    for(var i=0;i<c.length;i++){ var s=String(c[i]==null?'':c[i]).trim(); if(/^\d{10,}$/.test(s)) return s; }
+    return '';
+  };
+  var build=function(q){
+    var proj=Array.isArray(q.Project_Number)?q.Project_Number[0]:q.Project_Number;
+    return { project_id:idOf(q,'Project_Number'), client_id:idOf(q,'MFG_Customer'), manufacture:idOf(q,'Customer_Entry_Form'),
+             description:String((proj&&typeof proj==='object'&&proj.Project_Description)||q['Project_Number.Project_Description']||q.Quote_Description||quoteDesc||'') };
+  };
+  var missingOf=function(p){ return Object.keys(p).filter(function(k){ return !p[k]; }); };
+  var go=function(p){
     var url='#Page:Project_Dashboard?project_id='+p.project_id+'&client_id='+p.client_id
       +'&description='+encodeURIComponent(p.description)+'&manufacture='+p.manufacture;
     ZOHO.CREATOR.UTIL.navigateParentURL({ action:'open', url:url, window:'same' });
+  };
+  var raw=function(q){ var o={}; ['Project_Number','MFG_Customer','Customer_Entry_Form'].forEach(function(f){ o[f]=q[f]; }); try{ return JSON.stringify(o).slice(0,400); }catch(e){ return ''; } };
+  ZOHO.CREATOR.API.getRecordById({ appName:APP, reportName:'All_Quotes', id:quoteId }).then(function(resp){
+    var q1=(resp&&resp.data)||{}, p=build(q1);
+    if(!missingOf(p).length) return go(p);
+    // Second path: the list read returns lookups the way REST does.
+    return ZOHO.CREATOR.API.getAllRecords({ appName:APP, reportName:'All_Quotes', criteria:'(ID == '+quoteId+')', page:1, pageSize:1 }).then(function(r2){
+      var q2=((r2&&r2.data)||[])[0]||{}, p2=build(q2);
+      Object.keys(p).forEach(function(k){ if(!p[k]) p[k]=p2[k]; });
+      var miss=missingOf(p);
+      if(!miss.length) return go(p);
+      fail('the quote has no '+miss.join(', ')+'. Raw: '+raw(q1)+' | '+raw(q2));
+    });
   }).catch(function(e){ fail(errText(e)); });
 }
 
