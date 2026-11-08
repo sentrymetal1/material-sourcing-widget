@@ -271,7 +271,7 @@ td.lead-cell.slow{color:#854F0B !important;}
 </div>
 
 <script>
-var BUILD_TAG = 'v1.12 2026-11-08';
+var BUILD_TAG = 'v1.13 2026-11-08';
 var APP = 'type-formsheet-2-18-21';
 var quoteId = null, quoteRef = '', quoteDesc = '';
 // lineSort is separate from lineNums because fittings restart their numbering at 1
@@ -312,7 +312,9 @@ function loadRecords(){
   }).then(function(resp){
     if(resp && resp.data && resp.data.length > 0){
       allRecords = resp.data;
-      processRecords(); showMainPanel();
+      // Lead time is fetched before the first render so ties can rank on it. A
+      // failed read costs only the fallback; the page still loads.
+      loadQuoteLeadTimes().then(function(){ processRecords(); showMainPanel(); });
     } else {
       showError('No sourcing records found for this quote.');
     }
@@ -413,12 +415,32 @@ function filterBySupplier(suppId){
   renderTable(); updateStats();
 }
 
-function getLeadTime(rec){ 
+function getLeadTime(rec){
   // CAD_RFQs_Sent_ID.Lead_Time_Drop_Down1 comes through as a nested field
   if(rec['CAD_RFQs_Sent_ID.Lead_Time_Drop_Down1']) return rec['CAD_RFQs_Sent_ID.Lead_Time_Drop_Down1'];
   if(rec.CAD_RFQs_Sent_ID && rec.CAD_RFQs_Sent_ID.Lead_Time_Drop_Down1) return rec.CAD_RFQs_Sent_ID.Lead_Time_Drop_Down1;
-  return rec.CAD_Lead_Time||rec.Lead_Time||''; 
+  return rec.CAD_Lead_Time||rec.Lead_Time||quoteLeadOf(rec)||'';
 }
+
+// Suppliers give ONE lead time for the whole quote (Supplier_Verify_Form header,
+// Lead_Time_For_Ship_Complete, e.g. "5 Days"), and it never reaches the line rows —
+// so every structural line read "—" and every tie read "lead time n/a" (MMQ-100479).
+// A line's own lead time still wins; this fills only the blanks.
+var quoteLead = {};
+function loadQuoteLeadTimes(){
+  quoteLead={}; svCache=null;
+  return readSVForQuote().then(function(rows){
+    rows.slice().sort(function(a,b){ return String(a.ID).length-String(b.ID).length || (String(a.ID)>String(b.ID)?1:-1); })
+      .forEach(function(r){   // oldest first, so a supplier's newest response wins
+        var s=r.SV_Supplier_Entry_Form;
+        var sid=(s&&typeof s==='object')?String(s.ID||''):String(s||'');
+        var lt=r.Lead_Time_For_Ship_Complete;
+        if(lt&&typeof lt==='object') lt=lt.display_value||'';
+        if(sid&&lt) quoteLead[sid]=String(lt);
+      });
+  }).catch(function(){ /* page works without it; lines just show — */ });
+}
+function quoteLeadOf(rec){ return quoteLead[String(getSupplierId(rec))]||''; }
 function getItemStatus(rec){ 
   if(rec['CAD_RFQs_Sent_ID.Item_Verification_Status']) return rec['CAD_RFQs_Sent_ID.Item_Verification_Status'];
   if(rec.CAD_RFQs_Sent_ID && rec.CAD_RFQs_Sent_ID.Item_Verification_Status) return rec.CAD_RFQs_Sent_ID.Item_Verification_Status;
@@ -955,7 +977,8 @@ function onSaveComplete(supplierTotals){
   var suppRows='';
   Object.keys(supplierTotals).forEach(function(suppId){
     var s=supplierTotals[suppId];
-    suppRows+='<div class="supplier-summary-row"><div><div class="supplier-summary-name">'+s.name+'</div><div style="font-size:11px;color:#9BA3B0;">'+s.items+' item(s) | '+fmtLb(s.wt)+'</div></div><div class="supplier-summary-amt">'+fmt(s.total)+'</div></div>';
+    var lead=quoteLead[String(suppId)]||'';
+    suppRows+='<div class="supplier-summary-row"><div><div class="supplier-summary-name">'+s.name+'</div><div style="font-size:11px;color:#9BA3B0;">'+s.items+' item(s) | '+fmtLb(s.wt)+(lead?' | lead time '+lead:'')+'</div></div><div class="supplier-summary-amt">'+fmt(s.total)+'</div></div>';
   });
   document.getElementById('supplier-summary-rows').innerHTML=suppRows;
   document.getElementById('main-panel').style.display='none';
