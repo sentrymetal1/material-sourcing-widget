@@ -93,6 +93,8 @@ td.lead-cell.slow{color:#854F0B !important;}
 .sup-tag{display:inline-block;background:#deeaf7;color:#2e5f8a !important;font-size:11px;padding:2px 7px;border-radius:4px;font-weight:500;}
 .sup-tag.nr{background:#F1EFE8;color:#6B6F7A !important;}
 .low-star{color:#3B6D11 !important;font-size:10px;margin-left:2px;font-weight:700;}
+.tie-chip{display:inline-block;font-size:10px;padding:2px 8px;border-radius:20px;font-weight:500;background:#FAEEDA;color:#854F0B !important;margin-left:6px;}
+.tie-count{font-size:12px;font-weight:600;color:#854F0B !important;margin-left:12px;text-decoration:underline;cursor:pointer;}
 .sel-btn{display:inline-flex;align-items:center;justify-content:center;min-width:85px;padding:5px 12px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;border:2px solid;font-family:'DM Sans',sans-serif;transition:all 0.15s;white-space:nowrap;}
 .sel-btn.selected{background:#3B6D11;color:#fff !important;border-color:#3B6D11;}
 .sel-btn.selected:hover{background:#27500A;border-color:#27500A;}
@@ -169,6 +171,7 @@ td.lead-cell.slow{color:#854F0B !important;}
         <button class="btn btn-outline" onclick="sourceAllAvailable()">Source all available</button>
         <button class="btn btn-danger" onclick="clearAll()">Clear all</button>
         <span class="sel-info"><span id="sel-count">0</span> of <span id="sel-total">0</span> items sourced</span>
+        <a class="tie-count" id="tie-count" href="#" onclick="jumpToTie();return false;" style="display:none;"></a>
       </div>
       <button class="btn btn-success" id="confirm-btn" onclick="confirmSourcing()" disabled>Confirm sourcing &amp; save</button>
     </div>
@@ -252,7 +255,7 @@ td.lead-cell.slow{color:#854F0B !important;}
 </div>
 
 <script>
-var BUILD_TAG = 'v1.8 2026-09-23';
+var BUILD_TAG = 'v1.9 2026-11-08';
 var APP = 'type-formsheet-2-18-21';
 var quoteId = null, quoteRef = '', quoteDesc = '';
 // lineSort is separate from lineNums because fittings restart their numbering at 1
@@ -493,7 +496,16 @@ function renderTable(){
     var suppHtml=suppNames.length>1
       ?' &nbsp;<span class="supp-count">'+suppNames.length+' suppliers quoted &middot; '+suppNames.join(', ')+'</span>'
       :(suppNames.length===1?' &nbsp;<span class="supp-count">'+suppNames[0]+'</span>':'');
-    html+='<tr class="line-hdr"><td colspan="12">'+lineLabel+' &nbsp;<span class="line-hdr-desc">'+desc+'</span>'+suppHtml+(allocBadge?'&nbsp;&nbsp;'+allocBadge:'')+'</td></tr>';
+    // Equal lowest price from 2+ suppliers: name them WITH lead time, and say why
+    // Source all available picked the one it did, so a quiet coin-flip never splits
+    // the order. Switching is the row's own Select button.
+    var tied=tiedRows(rows), tieHtml='';
+    if(tied.length>1){
+      var parts=tied.map(function(r){ var lt=leadDaysOf(r); return getSupplierName(r)+' ('+(lt<Infinity?lt+' days':'lead time n/a')+')'; });
+      var why=tieReason[ln]?' — picked '+tieReason[ln]:'';
+      tieHtml='<span class="tie-chip">Tie at '+(isFitting(tied[0])?fmt(tied[0].CAD_Total_Price):fmtPl(tied[0].CAD_Price_Per_Lb)+'/lb')+': '+parts.join(' &middot; ')+why+'</span>';
+    }
+    html+='<tr class="line-hdr" id="line-'+ln+'"><td colspan="12">'+lineLabel+' &nbsp;<span class="line-hdr-desc">'+desc+'</span>'+suppHtml+(allocBadge?'&nbsp;&nbsp;'+allocBadge:'')+tieHtml+'</td></tr>';
 
     var prices=rows.filter(function(r){return r.CAD_Price_Per_Lb&&parseFloat(r.CAD_Price_Per_Lb)>0;}).map(function(r){return parseFloat(r.CAD_Price_Per_Lb);});
     var minPrice=prices.length>0?Math.min.apply(null,prices):null;
@@ -554,20 +566,66 @@ function setSelection(ln,recId,val){
   renderTable(); updateStats();
 }
 
+// ---- Equal-price ties ----
+// Prices compare at 4 decimals ($/lb as displayed), so float noise never makes or
+// breaks a tie. Fittings rank on the same $/lb (same part, same weight), so one
+// rule covers both.
+var tieReason = {};   // ln -> why Source all available picked the supplier it did
+function priceKey(r){ var p=parseFloat(r.CAD_Price_Per_Lb); return p>0?Math.round(p*10000):null; }
+function leadDaysOf(r){ var d=parseInt(getLeadTime(r)); return d>0?d:Infinity; }
+function tiedRows(rows){
+  var priced=rows.filter(function(r){ return priceKey(r)!==null; });
+  if(priced.length<2) return [];
+  var min=Math.min.apply(null,priced.map(priceKey));
+  return priced.filter(function(r){ return priceKey(r)===min; });
+}
+
+// Lowest price wins. On a tie (Mark, 2026-11-08): 1) the supplier already winning
+// the most lines — consolidating keeps the package price the supplier quoted on;
+// 2) shorter lead time; 3) a line quoted as-is over one with an alteration.
+// Clear wins are counted first so ties lean toward the real front-runner, then
+// ties resolve in line order, each one adding to its winner's count.
 function sourceAllAvailable(){
+  var wins={}, tiedLines=[];
+  var countWin=function(rec){ var s=String(getSupplierId(rec)||getSupplierName(rec)); wins[s]=(wins[s]||0)+1; };
+  var winsOf=function(rec){ return wins[String(getSupplierId(rec)||getSupplierName(rec))]||0; };
   Object.keys(lineGroups).forEach(function(ln){
-    if(selections[ln]) return;
     var rows=lineGroups[ln];
+    if(selections[ln]){
+      var cur=rows.find(function(r){ return r.ID===selections[ln]; });
+      if(cur) countWin(cur);
+      return;
+    }
     var available=rows.filter(function(r){ var sn=getSupplierName(r); return (sn!=='')||(r.CAD_Price_Per_Lb&&parseFloat(r.CAD_Price_Per_Lb)>0); });
     if(available.length===0) return;
+    var tied=tiedRows(rows);
+    if(tied.length>1){ tiedLines.push(ln); return; }
     var withPrice=available.filter(function(r){return parseFloat(r.CAD_Price_Per_Lb)>0;});
     var pick=withPrice.length>0?withPrice.reduce(function(a,b){return parseFloat(a.CAD_Price_Per_Lb)<parseFloat(b.CAD_Price_Per_Lb)?a:b;}):available[0];
     selections[ln]=pick.ID;
+    countWin(pick);
+  });
+  tiedLines.sort(function(a,b){return (lineSort[a]||0)-(lineSort[b]||0);}).forEach(function(ln){
+    var tied=tiedRows(lineGroups[ln]);
+    var asIs=function(r){ return /quote as is/i.test(getItemStatus(r))?0:1; };
+    tied.sort(function(a,b){
+      return (winsOf(b)-winsOf(a)) || (leadDaysOf(a)-leadDaysOf(b)) || (asIs(a)-asIs(b));
+    });
+    var pick=tied[0], next=tied[1];
+    selections[ln]=pick.ID;
+    tieReason[ln]=getSupplierName(pick)+(winsOf(pick)>winsOf(next)?' (most lines)':(leadDaysOf(pick)<leadDaysOf(next)?' (shorter lead time)':(asIs(pick)<asIs(next)?' (quoted as is)':'')));
+    countWin(pick);
   });
   renderTable(); updateStats();
 }
 
-function clearAll(){ selections={}; renderTable(); updateStats(); }
+function jumpToTie(){
+  var first=Object.keys(lineGroups).sort(function(a,b){return (lineSort[a]||0)-(lineSort[b]||0);}).find(function(ln){ return tiedRows(lineGroups[ln]).length>1; });
+  var el=first&&document.getElementById('line-'+first);
+  if(el) el.scrollIntoView({behavior:'smooth',block:'center'});
+}
+
+function clearAll(){ selections={}; tieReason={}; renderTable(); updateStats(); }
 
 // getTotalWt returns null when a fitting has no catalogued weight — correctly, because
 // a blank is honest and a zero is not. But `parseFloat(null)||0` turns that blank into
@@ -615,6 +673,11 @@ function updateStats(){
   document.getElementById('f-amt').textContent=fmt(totalAmt);
   document.getElementById('f-prog').textContent=sourcedCount+' of '+totalLines;
   document.getElementById('f-suppliers').textContent=suppCount>0?suppCount+' supplier'+(suppCount>1?'s':''):'—';
+
+  var ties=Object.keys(lineGroups).filter(function(ln){ return tiedRows(lineGroups[ln]).length>1; }).length;
+  var tieEl=document.getElementById('tie-count');
+  tieEl.textContent=ties+' line'+(ties>1?'s':'')+' tied on price';
+  tieEl.style.display=ties>0?'inline':'none';
 
   // Multi-supplier warning
   var warnEl=document.getElementById('multi-supplier-warn');
